@@ -1,0 +1,36 @@
+{
+  "name": "Nixie",
+  "id": "nixie",
+  "description": "Écran d'ordinateur sur pieds, châssis gris foncé, yeux rouge-orangé qui suivent le curseur. Nommé d'après les tubes Nixie, ces afficheurs en verre sombre à lueur orange.",
+  "author": "Corentin Vandeput",
+  "license": "MIT",
+  "grid": {
+    "logical": 24,
+    "scale": 4,
+    "frame": 96
+  },
+  "eyes": {
+    "comment": "Coin haut-gauche des orbites, en cellules de la grille logique. Orbite = 4x4 cellules. CSS : left = x*2, top = y*2.",
+    "left": [6, 10],
+    "right": [14, 10],
+    "socket": [4, 4],
+    "css": {
+      "top": 20,
+      "left": { "left": 12, "right": 28 },
+      "size": 8
+    }
+  },
+  "palette": {
+    "carcasse_clair": "#454B52",
+    "carcasse_base": "#2E3338",
+    "carcasse_ombre": "#1B1F23",
+    "contour": "#0E1114",
+    "dalle_fond": "#121416",
+    "dalle_reflet": "#1C2024",
+    "oeil_coeur": "#FF6A2B",
+    "oeil_clair": "#FFA55C",
+    "oeil_ombre": "#C4380C",
+    "blanc_specular": "#E8EDF2"
+  },
+  "verifiedOn": ["1.132.0"]
+}

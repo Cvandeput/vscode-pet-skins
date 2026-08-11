@@ -7,10 +7,12 @@ Le skin fourni s'appelle **Nixie** — un écran d'ordinateur sur pieds, châssi
 gris foncé, yeux rouge-orangé qui suivent le curseur. Nommé d'après les tubes
 Nixie, ces afficheurs en verre sombre à lueur orange.
 
+<p align="center"><img src="skins/nixie/preview/banner.gif" width="720" alt="Nixie"></p>
+
 <p align="center">
-  <img src="skins/nixie/preview/idle.gif" width="180" alt="idle">
-  <img src="skins/nixie/preview/search.gif" width="180" alt="search">
-  <img src="skins/nixie/preview/love.gif" width="180" alt="love">
+  <img src="skins/nixie/preview/idle.gif" width="150" alt="idle">
+  <img src="skins/nixie/preview/search.gif" width="150" alt="search">
+  <img src="skins/nixie/preview/love.gif" width="150" alt="love">
 </p>
 
 <p align="center"><img src="skins/nixie/preview/states.png" width="900" alt="tous les états"></p>

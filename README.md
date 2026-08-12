@@ -7,13 +7,7 @@ Le skin fourni s'appelle **Nixie** — un écran d'ordinateur sur pieds, châssi
 gris foncé, yeux rouge-orangé qui suivent le curseur. Nommé d'après les tubes
 Nixie, ces afficheurs en verre sombre à lueur orange.
 
-<p align="center"><img src="skins/nixie/preview/banner.gif" width="720" alt="Nixie"></p>
-
-<p align="center">
-  <img src="skins/nixie/preview/idle.gif" width="150" alt="idle">
-  <img src="skins/nixie/preview/search.gif" width="150" alt="search">
-  <img src="skins/nixie/preview/love.gif" width="150" alt="love">
-</p>
+<p align="center"><img src="skins/nixie/preview/banner.gif" width="900" alt="Nixie"></p>
 
 <p align="center"><img src="skins/nixie/preview/states.png" width="900" alt="tous les états"></p>
 
@@ -154,16 +148,43 @@ bannière.
 ## Créer son propre skin
 
 ```
+tools/editor.html          éditeur pixel-art, à ouvrir dans le navigateur
 skins/
 └── nixie/
-    ├── skin.json          métadonnées : palette, coordonnées des orbites
-    ├── sprites/           les 48 PNG
+    ├── skin.json          LE fichier source : dessin, palette, repères
+    ├── sprites/           les 48 PNG produits
     ├── css/pet.css        surcharges des pupilles
-    ├── generator/         le script qui produit les sprites
+    ├── generator/
+    │   ├── petgen.py      lit skin.json, écrit les 48 PNG
+    │   └── banner.py      bannière animée du README
     └── preview/           gifs et planche des états
 ```
 
-Duplique `skins/nixie/` sous un autre nom, modifie, puis :
+### Le tout en trois étapes
+
+**1. Dessine.** Ouvre [`tools/editor.html`](tools/editor.html) dans ton
+navigateur — aucune installation, c'est un fichier unique. Tu y dessines le
+personnage sur une grille 24×24, tu choisis tes couleurs, tu places les
+repères, et tu exportes un `skin.json`.
+
+L'éditeur montre en direct l'animation `idle` telle qu'elle sera rendue, à la
+taille réelle de 48 px, avec un mode *tracking* où la pupille suit ta souris
+comme dans VS Code. Il génère aussi le CSS correspondant à tes orbites et
+signale les incohérences de géométrie.
+
+Outils : crayon, gomme, pot de peinture, pipette, symétrie horizontale,
+annulation. Raccourcis `b` `e` `g` `i` et `Ctrl+Z`.
+
+**2. Génère.**
+
+```bash
+mkdir -p skins/<ton-skin> && mv ~/Downloads/skin.json skins/<ton-skin>/
+cp skins/nixie/generator/petgen.py skins/<ton-skin>/generator/
+cd skins/<ton-skin>/generator && python petgen.py
+mv out/buddy-*.png ../sprites/
+```
+
+**3. Installe.**
 
 ```powershell
 .\scripts\Install-PetSkin.ps1 -Skin <ton-skin>
@@ -171,20 +192,25 @@ Duplique `skins/nixie/` sous un autre nom, modifie, puis :
 
 ### Le générateur
 
-Tout le dessin de Nixie est produit par
-[`skins/nixie/generator/petgen.py`](skins/nixie/generator/petgen.py) — ~400
-lignes de Python, sans dépendance hors Pillow. Aucun asset n'est dessiné à la
-main.
+`petgen.py` ne contient aucun dessin : il lit `skin.json` et en dérive les 12
+animations. Tu dessines **une** image, il en produit 220 frames.
 
 ```bash
 pip install pillow
-python skins/nixie/generator/petgen.py     # écrit out/ : 48 PNG + preview/
+python skins/nixie/generator/petgen.py                  # utilise ../skin.json
+python skins/nixie/generator/petgen.py autre/skin.json  # un autre skin
 ```
 
-Structure : la palette dans un dict en tête de fichier, `draw_base()` pour le
-châssis, une fonction par animation, l'assemblage des spritesheets à la fin.
-Changer une couleur tient en une ligne ; redessiner le personnage tient dans
-`draw_base()`.
+Ce qui est dérivé automatiquement du dessin de base : la respiration et le
+clignement d'`idle`, le balayage du regard de `typing`, la barre de
+progression de `rendering`, les sauts de `clapping`, les cœurs de `love`, les
+lunettes de `cool`, l'extinction de `sleep`, l'amorçage CRT de `waking`, la
+bouche de `yapping`, l'émergence de `search`, et la bulle de `speech`.
+
+Les repères de `skin.json` disent au générateur **où** agir : `screen` délimite
+la zone où dessiner scanlines et barres, `eyes` place les orbites, `feet`
+identifie les pieds pour qu'ils puissent se lever, `body` sert aux effets qui
+débordent du châssis.
 
 ### Avant de te lancer
 
@@ -206,7 +232,8 @@ Une cellule de la grille logique 24×24 vaut 2 px CSS :
 orbite (x, y)  ->  left: x*2 px,  top: y*2 px
 ```
 
-Reporte les valeurs dans `skins/<ton-skin>/css/pet.css` et dans `skin.json`.
+L'éditeur fait le calcul et affiche le CSS prêt à coller dans
+`skins/<ton-skin>/css/pet.css`.
 
 ## Dépannage
 

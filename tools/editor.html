@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>vscode-pet-skins — éditeur de skin</title>
+<style>
+  :root{
+    --bg:#1e1e1e; --panel:#252526; --line:#333; --txt:#d4d4d4; --dim:#8a8a8a;
+    --acc:#FF6A2B; --acc2:#2E75B6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:13px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;
+         align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:15px;margin:0;font-weight:600}
+  header .sub{color:var(--dim);font-size:12px}
+  main{display:flex;gap:16px;padding:16px;align-items:flex-start;flex-wrap:wrap}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);
+     margin:0 0 8px;font-weight:600}
+  button{background:#333;color:var(--txt);border:1px solid #444;border-radius:4px;
+         padding:5px 9px;cursor:pointer;font:inherit;font-size:12px}
+  button:hover{background:#3c3c3c}
+  button.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
+  input[type=text]{background:#1a1a1a;border:1px solid #444;color:var(--txt);
+                   border-radius:4px;padding:4px 6px;font:inherit;width:100%}
+  select{background:#1a1a1a;border:1px solid #444;color:var(--txt);border-radius:4px;
+         padding:3px 4px;font:inherit;font-size:12px}
+  .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .tools{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  #grid{image-rendering:pixelated;cursor:crosshair;display:block;
+        border:1px solid #444;border-radius:4px;background:
+        repeating-conic-gradient(#2a2a2a 0 25%,#232323 0 50%) 0 0/16px 16px}
+  .swatch{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+  .swatch .key{width:20px;text-align:center;font-family:ui-monospace,Consolas,monospace;
+               color:var(--dim)}
+  .swatch input[type=color]{width:34px;height:24px;padding:0;border:1px solid #444;
+                            background:none;border-radius:3px;cursor:pointer}
+  .swatch button.sel{outline:2px solid var(--acc)}
+  .swatch .chip{width:26px;height:22px;border-radius:3px;border:1px solid #444;cursor:pointer}
+  .anchors label{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;
+                 font-size:12px;align-items:center}
+  .anchors input{width:64px;background:#1a1a1a;border:1px solid #444;color:var(--txt);
+                 border-radius:3px;padding:2px 4px;font:inherit;font-size:12px}
+  .roles{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:12px;
+         align-items:center}
+  canvas.prev{image-rendering:pixelated;border:1px solid #444;border-radius:4px;
+              background:#1e1e1e}
+  textarea{width:100%;height:120px;background:#1a1a1a;border:1px solid #444;
+           color:var(--txt);border-radius:4px;font:11px ui-monospace,Consolas,monospace;
+           padding:6px}
+  .hint{color:var(--dim);font-size:11px;margin-top:6px}
+  .warn{color:#e0a35a}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>éditeur de skin — <span style="color:var(--acc)">vscode-pet-skins</span></h1>
+  <span class="sub">dessine la base, place les repères, exporte <code>skin.json</code></span>
+  <span style="flex:1"></span>
+  <button id="btnLoadNixie">Charger Nixie</button>
+  <button id="btnImport">Importer skin.json</button>
+  <button id="btnExport" class="on">Exporter skin.json</button>
+  <input type="file" id="fileIn" accept=".json" hidden>
+</header>
+
+<main>
+
+  <!-- ------------------------------------------------ outils + palette -->
+  <div class="panel" style="width:220px">
+    <h2>Outils</h2>
+    <div class="tools">
+      <button data-tool="pen"   class="on">Crayon</button>
+      <button data-tool="erase">Gomme</button>
+      <button data-tool="fill">Pot</button>
+      <button data-tool="pick">Pipette</button>
+    </div>
+    <div class="row" style="margin-bottom:10px">
+      <button id="btnMirror">Miroir X</button>
+      <button id="btnAnchors" class="on">Repères</button>
+      <button id="btnUndo">Annuler</button>
+      <button id="btnClear">Vider</button>
+    </div>
+
+    <h2>Palette</h2>
+    <div id="palette"></div>
+    <div class="row" style="margin-top:6px">
+      <button id="btnAddColor">+ couleur</button>
+      <button id="btnDelColor">− couleur</button>
+    </div>
+    <div class="hint">La lettre est l'identifiant du pixel dans <code>base</code>.
+      Change une couleur : tout le dessin suit.</div>
+
+    <h2 style="margin-top:14px">Rôles</h2>
+    <div class="roles" id="roles"></div>
+    <div class="hint">Quelle couleur le générateur utilise pour les yeux, la dalle,
+      les étincelles…</div>
+  </div>
+
+  <!-- ------------------------------------------------ grille -->
+  <div class="panel">
+    <h2>Base — 24 × 24</h2>
+    <canvas id="grid" width="480" height="480"></canvas>
+    <div class="row" style="margin-top:8px">
+      <span class="sub" id="coords">—</span>
+      <span style="flex:1"></span>
+      <span class="sub">clic gauche : peindre · clic droit : effacer</span>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------ repères + aperçu -->
+  <div class="panel" style="width:260px">
+    <h2>Repères</h2>
+    <div class="anchors" id="anchors"></div>
+    <div class="hint">Orbite = 4×4 cellules. Le CSS se déduit :
+      <code>left = x×2</code>, <code>top = y×2</code>.</div>
+
+    <h2 style="margin-top:14px">Aperçu</h2>
+    <div class="row">
+      <canvas class="prev" id="prev96" width="96" height="96"
+              style="width:192px;height:192px"></canvas>
+      <div>
+        <canvas class="prev" id="prev48" width="96" height="96"
+                style="width:48px;height:48px"></canvas>
+        <div class="hint" style="margin-top:4px">taille réelle</div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="btnTracking">Mode tracking</button>
+      <button id="btnPlay" class="on">Pause</button>
+    </div>
+    <div class="hint">En tracking, la pupille est dessinée par VS Code —
+      bouge la souris sur l'aperçu.</div>
+
+    <h2 style="margin-top:14px">CSS généré</h2>
+    <textarea id="cssOut" readonly style="height:96px"></textarea>
+    <div class="hint" id="check"></div>
+  </div>
+
+</main>
+
+<script>
+'use strict';
+
+// ------------------------------------------------------------------ modèle
+const N = 24, CELL = 20;
+const NIXIE = {
+  format:1, id:'nixie', name:'Nixie', author:'', license:'MIT',
+  grid:24, scale:4,
+  palette:{A:'#454B52',B:'#2E3338',C:'#1B1F23',D:'#0E1114',E:'#121416',
+           F:'#1C2024',G:'#FF6A2B',H:'#FFA55C',I:'#C4380C',J:'#E8EDF2',
+           K:'#372119',L:'#5C3120'},
+  roles:{screen:'E',screenFlicker:'F',socket:'D',socketRim:'F',eyeCore:'G',
+         eyeLight:'H',eyeShadow:'I',halo:'K',haloStrong:'L',spark:'J',
+         shadow:'C',outline:'D',bubbleFill:'A',bubbleShine:'J'},
+  anchors:{eyes:{left:[6,10],right:[14,10],socket:[4,4]},
+           screen:[5,8,18,16], body:[2,2,21,19],
+           feet:[[5,20,8,22],[15,20,18,22]]},
+  base:[
+   '........................','........................',
+   '..DDDDDDDDDDDDDDDDDDDD..','..DJAAAAAAAAAAAAAAAAAD..',
+   '..DABBBBBBBBBBBBBBBBCD..','..DABBBBBBBBBBBBBBBBCD..',
+   '..DABBBBBBBBBBBBBBBBCD..','..DBDDDDDDDDDDDDDDDDCD..',
+   '..DBDEEEEEEEEEEEEEEDCD..','..DBDEEEEEEEEEEEEEEDCD..',
+   '..DBDEEEEEEEEEEEEEEDCD..','..DBDEEEEEEEEEEEEEEDCD..',
+   '..DBDEEEEEEEEEEEEEEDCD..','..DBDEEEEEEEEEEEEEEDCD..',
+   '..DBDEEEEEEEEEEEEEEDCD..','..DBDEEEEEEEEEEEEEEDCD..',
+   '..DBDEEEEEEEEEEEEEEDCD..','..DBDDDDDDDDDDDDDDDDCD..',
+   '..DCCCCCCCCCCCCCCCCCCD..','..DDDDDDDDDDDDDDDDDDDD..',
+   '.....DDDD......DDDD.....','.....DCCD......DCCD.....',
+   '.....DDDD......DDDD.....','........................']
+};
+
+let S;                      // skin courant
+let grid;                   // N x N lettres
+let cur = 'D';              // couleur sélectionnée
+let tool = 'pen';
+let mirror = false, showAnchors = true, tracking = false, playing = true;
+let undoStack = [];
+let gaze = [0,0];
+
+function loadSkin(o){
+  S = JSON.parse(JSON.stringify(o));
+  grid = S.base.map(r => r.padEnd(N,'.').slice(0,N).split(''));
+  cur = Object.keys(S.palette)[3] || 'A';
+  buildPalette(); buildRoles(); buildAnchors(); draw(); syncCss();
+}
+
+function snapshot(){ undoStack.push(grid.map(r=>r.join(''))); if(undoStack.length>60) undoStack.shift(); }
+function undo(){ const p=undoStack.pop(); if(p){ grid=p.map(r=>r.split('')); draw(); } }
+
+// ------------------------------------------------------------------ palette
+function buildPalette(){
+  const box = document.getElementById('palette'); box.innerHTML='';
+  for(const [k,hex] of Object.entries(S.palette)){
+    const row = document.createElement('div'); row.className='swatch';
+    row.innerHTML = `<span class="key">${k}</span>`;
+    const chip = document.createElement('button');
+    chip.className='chip'; chip.style.background=hex;
+    if(k===cur) chip.classList.add('sel');
+    chip.onclick=()=>{cur=k;buildPalette();};
+    const col = document.createElement('input'); col.type='color'; col.value=hex;
+    col.oninput=e=>{ S.palette[k]=e.target.value; chip.style.background=e.target.value;
+                     draw(); };
+    row.append(chip,col); box.append(row);
+  }
+  const t = document.createElement('div'); t.className='swatch';
+  t.innerHTML='<span class="key">.</span>';
+  const c=document.createElement('button'); c.className='chip';
+  c.style.background='transparent'; c.style.borderStyle='dashed';
+  if(cur==='.') c.classList.add('sel');
+  c.onclick=()=>{cur='.';buildPalette();};
+  t.append(c); box.append(t);
+}
+
+function nextLetter(){
+  for(let i=65;i<91;i++){ const l=String.fromCharCode(i); if(!(l in S.palette)) return l; }
+  return null;
+}
+
+// ------------------------------------------------------------------ rôles
+const ROLE_LABELS = {
+  screen:'dalle', screenFlicker:'reflet dalle', socket:'orbite', socketRim:'liseré orbite',
+  eyeCore:'œil', eyeLight:'œil clair', eyeShadow:'œil ombre', halo:'halo',
+  haloStrong:'halo fort', spark:'étincelle', shadow:'ombre', outline:'contour',
+  bubbleFill:'bulle', bubbleShine:'bulle reflet'
+};
+function buildRoles(){
+  const box=document.getElementById('roles'); box.innerHTML='';
+  for(const [role,letter] of Object.entries(S.roles)){
+    const lab=document.createElement('span'); lab.textContent=ROLE_LABELS[role]||role;
+    const sel=document.createElement('select');
+    for(const k of Object.keys(S.palette)){
+      const o=document.createElement('option'); o.value=k; o.textContent=k;
+      if(k===letter) o.selected=true; sel.append(o);
+    }
+    sel.onchange=e=>{ S.roles[role]=e.target.value; draw(); };
+    box.append(lab,sel);
+  }
+}
+
+// ------------------------------------------------------------------ repères
+function buildAnchors(){
+  const box=document.getElementById('anchors'); box.innerHTML='';
+  const A=S.anchors;
+  const mk=(label,get,set)=>{
+    const l=document.createElement('label');
+    l.innerHTML=`<span>${label}</span>`;
+    const i=document.createElement('input'); i.value=get().join(',');
+    i.onchange=e=>{ const v=e.target.value.split(',').map(n=>parseInt(n.trim(),10));
+                    if(v.every(n=>!isNaN(n))){ set(v); draw(); syncCss(); } };
+    l.append(i); box.append(l);
+  };
+  mk('œil gauche x,y',()=>A.eyes.left,v=>A.eyes.left=v.slice(0,2));
+  mk('œil droit x,y',()=>A.eyes.right,v=>A.eyes.right=v.slice(0,2));
+  mk('orbite l,h',()=>A.eyes.socket,v=>A.eyes.socket=v.slice(0,2));
+  mk('dalle x0,y0,x1,y1',()=>A.screen,v=>A.screen=v.slice(0,4));
+  mk('corps x0,y0,x1,y1',()=>A.body,v=>A.body=v.slice(0,4));
+  mk('pied G x0,y0,x1,y1',()=>A.feet[0],v=>A.feet[0]=v.slice(0,4));
+  mk('pied D x0,y0,x1,y1',()=>A.feet[1],v=>A.feet[1]=v.slice(0,4));
+}
+
+// ------------------------------------------------------------------ dessin
+const cv = document.getElementById('grid'), ctx = cv.getContext('2d');
+
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    const c=grid[y][x]; if(c==='.') continue;
+    ctx.fillStyle=S.palette[c]||'#f0f'; ctx.fillRect(x*CELL,y*CELL,CELL,CELL);
+  }
+  ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.lineWidth=1;
+  for(let i=0;i<=N;i++){
+    ctx.beginPath(); ctx.moveTo(i*CELL+.5,0); ctx.lineTo(i*CELL+.5,N*CELL); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i*CELL+.5); ctx.lineTo(N*CELL,i*CELL+.5); ctx.stroke();
+  }
+  if(showAnchors) drawAnchors();
+  drawPreview();
+}
+
+function box(x0,y0,w,h,color,label){
+  ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.setLineDash([4,3]);
+  ctx.strokeRect(x0*CELL+1,y0*CELL+1,w*CELL-2,h*CELL-2);
+  if(label){ ctx.setLineDash([]); ctx.fillStyle=color; ctx.font='10px sans-serif';
+             ctx.fillText(label,x0*CELL+3,y0*CELL-2); }
+  ctx.restore();
+}
+function drawAnchors(){
+  const A=S.anchors, [sw,sh]=A.eyes.socket;
+  box(A.screen[0],A.screen[1],A.screen[2]-A.screen[0]+1,A.screen[3]-A.screen[1]+1,'#2E75B6','dalle');
+  box(A.eyes.left[0],A.eyes.left[1],sw,sh,'#FF6A2B','œil G');
+  box(A.eyes.right[0],A.eyes.right[1],sw,sh,'#FF6A2B','œil D');
+  A.feet.forEach((f,i)=>box(f[0],f[1],f[2]-f[0]+1,f[3]-f[1]+1,'#6ab04c','pied '+(i?'D':'G')));
+}
+
+// ------------------------------------------------------------------ souris
+function cellAt(e){
+  const r=cv.getBoundingClientRect();
+  return [Math.floor((e.clientX-r.left)/(r.width/N)),
+          Math.floor((e.clientY-r.top)/(r.height/N))];
+}
+function paint(x,y,c){
+  if(x<0||y<0||x>=N||y>=N) return;
+  grid[y][x]=c;
+  if(mirror) grid[y][N-1-x]=c;
+}
+function flood(x,y,c){
+  const from=grid[y][x]; if(from===c) return;
+  const st=[[x,y]];
+  while(st.length){
+    const [a,b]=st.pop();
+    if(a<0||b<0||a>=N||b>=N||grid[b][a]!==from) continue;
+    grid[b][a]=c;
+    st.push([a+1,b],[a-1,b],[a,b+1],[a,b-1]);
+  }
+}
+let drawing=false;
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+  const [x,y]=cellAt(e); snapshot(); drawing=true;
+  const c = (e.button===2||tool==='erase') ? '.' : cur;
+  if(tool==='pick'){ const g=grid[y][x]; if(g!=='.'){cur=g;buildPalette();} drawing=false; return; }
+  if(tool==='fill'){ flood(x,y,c); drawing=false; }
+  else paint(x,y,c);
+  draw();
+});
+cv.addEventListener('pointermove',e=>{
+  const [x,y]=cellAt(e);
+  document.getElementById('coords').textContent =
+    (x>=0&&y>=0&&x<N&&y<N) ? `x ${x}  y ${y}  →  ${grid[y][x]}` : '—';
+  if(!drawing) return;
+  paint(x,y,(e.buttons===2||tool==='erase')?'.':cur); draw();
+});
+addEventListener('pointerup',()=>drawing=false);
+
+// ------------------------------------------------------------------ aperçu
+const p96=document.getElementById('prev96').getContext('2d');
+const p48=document.getElementById('prev48').getContext('2d');
+let frame=0;
+
+function shifted(oy){
+  const g=Array.from({length:N},()=>Array(N).fill('.'));
+  const A=S.anchors;
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    const c=grid[y][x]; if(c==='.') continue;
+    const ny=y+oy; if(ny>=0&&ny<N) g[ny][x]=c;
+  }
+  return g;
+}
+function put(g,x,y,c){ if(x>=0&&y>=0&&x<N&&y<N) g[y][x]=c; }
+
+function eyesOn(g,oy,blink){
+  const A=S.anchors, R=S.roles, [sw,sh]=A.eyes.socket;
+  for(const [ex,ey] of [A.eyes.left,A.eyes.right]){
+    if(blink){ for(let i=0;i<sw;i++) put(g,ex+i,ey+sh-1+oy,R.socket); continue; }
+    for(let i=0;i<sw;i++) put(g,ex+i,ey+oy,R.socketRim);
+    for(let j=1;j<sh;j++) for(let i=0;i<sw;i++) put(g,ex+i,ey+j+oy,R.socket);
+    for(let i=-1;i<=sw;i++){ put(g,ex+i,ey-1+oy,R.halo); put(g,ex+i,ey+sh+oy,R.halo); }
+    for(let j=0;j<sh;j++){ put(g,ex-1,ey+j+oy,R.halo); put(g,ex+sw,ey+j+oy,R.halo); }
+    const dx = tracking ? gaze[0] : 0, dy = tracking ? gaze[1] : 0;
+    put(g,ex+1+dx,ey+1+dy+oy,R.eyeLight);  put(g,ex+2+dx,ey+1+dy+oy,R.eyeCore);
+    put(g,ex+1+dx,ey+2+dy+oy,R.eyeCore);   put(g,ex+2+dx,ey+2+dy+oy,R.eyeShadow);
+  }
+}
+
+function drawPreview(){
+  const i=frame%50, oy=i<20?0:1, blink=(i>=23&&i<=27);
+  const g=shifted(oy);
+  eyesOn(g,oy,blink);
+  for(const c of [p96,p48]){
+    c.clearRect(0,0,96,96);
+    for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+      const k=g[y][x]; if(k==='.') continue;
+      c.fillStyle=S.palette[k]||'#f0f'; c.fillRect(x*4,y*4,4,4);
+    }
+  }
+}
+document.getElementById('prev96').addEventListener('pointermove',e=>{
+  const r=e.target.getBoundingClientRect();
+  const dx=e.clientX-(r.left+r.width/2), dy=e.clientY-(r.top+r.height/2);
+  const d=Math.hypot(dx,dy)||1;
+  gaze=[Math.round(dx/d),Math.round(dy/d)];
+});
+setInterval(()=>{ if(playing){ frame++; drawPreview(); } },40);
+
+// ------------------------------------------------------------------ CSS + contrôles
+function syncCss(){
+  const A=S.anchors, [sw,sh]=A.eyes.socket;
+  const css =
+`.chat-pet-eye        { top: ${A.eyes.left[1]*2}px; width: ${sw*2}px; height: ${sh*2}px; }
+.chat-pet-eye.left   { left: ${A.eyes.left[0]*2}px; }
+.chat-pet-eye.right  { left: ${A.eyes.right[0]*2}px; }
+.chat-pet-pupil      { background: ${S.palette[S.roles.eyeCore]}; }
+.chat-pet-button.dragging .chat-pet-eye::before,
+.chat-pet-button.dragging .chat-pet-eye::after { background: ${S.palette[S.roles.eyeCore]}; }`;
+  document.getElementById('cssOut').value=css;
+
+  const msgs=[];
+  if(sw<4||sh<4) msgs.push('orbite < 4×4 : la pupille débordera quand le regard part sur le côté');
+  const A2=A.screen;
+  for(const [ex,ey] of [A.eyes.left,A.eyes.right])
+    if(ex<A2[0]||ey<A2[1]||ex+sw-1>A2[2]||ey+sh-1>A2[3])
+      msgs.push('une orbite sort de la dalle');
+  document.getElementById('check').innerHTML =
+    msgs.length ? '<span class="warn">⚠ '+msgs.join('<br>⚠ ')+'</span>'
+                : 'géométrie cohérente';
+}
+
+document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{
+  tool=b.dataset.tool;
+  document.querySelectorAll('[data-tool]').forEach(o=>o.classList.toggle('on',o===b));
+});
+document.getElementById('btnMirror').onclick=e=>{mirror=!mirror;e.target.classList.toggle('on',mirror);};
+document.getElementById('btnAnchors').onclick=e=>{showAnchors=!showAnchors;e.target.classList.toggle('on',showAnchors);draw();};
+document.getElementById('btnTracking').onclick=e=>{tracking=!tracking;e.target.classList.toggle('on',tracking);};
+document.getElementById('btnPlay').onclick=e=>{playing=!playing;e.target.textContent=playing?'Pause':'Lecture';};
+document.getElementById('btnUndo').onclick=undo;
+document.getElementById('btnClear').onclick=()=>{snapshot();grid=Array.from({length:N},()=>Array(N).fill('.'));draw();};
+document.getElementById('btnLoadNixie').onclick=()=>loadSkin(NIXIE);
+document.getElementById('btnAddColor').onclick=()=>{
+  const l=nextLetter(); if(!l) return alert('26 couleurs maximum');
+  S.palette[l]='#ffffff'; cur=l; buildPalette(); buildRoles();
+};
+document.getElementById('btnDelColor').onclick=()=>{
+  if(Object.keys(S.palette).length<=2) return;
+  if(grid.some(r=>r.includes(cur))) return alert('couleur encore utilisée dans le dessin');
+  delete S.palette[cur]; cur=Object.keys(S.palette)[0]; buildPalette(); buildRoles();
+};
+addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){ e.preventDefault(); undo(); }
+  if(e.key==='b') document.querySelector('[data-tool=pen]').click();
+  if(e.key==='e') document.querySelector('[data-tool=erase]').click();
+  if(e.key==='g') document.querySelector('[data-tool=fill]').click();
+  if(e.key==='i') document.querySelector('[data-tool=pick]').click();
+});
+
+document.getElementById('btnExport').onclick=()=>{
+  S.base = grid.map(r=>r.join(''));
+  S.grid = N; S.scale = 4;
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='skin.json'; a.click();
+};
+document.getElementById('btnImport').onclick=()=>document.getElementById('fileIn').click();
+document.getElementById('fileIn').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ loadSkin(JSON.parse(r.result)); }catch(err){ alert('JSON invalide : '+err.message); } };
+  r.readAsText(f);
+};
+
+loadSkin(NIXIE);
+</script>
+</body>
+</html>

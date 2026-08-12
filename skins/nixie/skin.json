@@ -1,36 +1,78 @@
 {
-  "name": "Nixie",
+  "format": 1,
   "id": "nixie",
+  "name": "Nixie",
   "description": "Écran d'ordinateur sur pieds, châssis gris foncé, yeux rouge-orangé qui suivent le curseur. Nommé d'après les tubes Nixie, ces afficheurs en verre sombre à lueur orange.",
   "author": "Corentin Vandeput",
   "license": "MIT",
-  "grid": {
-    "logical": 24,
-    "scale": 4,
-    "frame": 96
-  },
-  "eyes": {
-    "comment": "Coin haut-gauche des orbites, en cellules de la grille logique. Orbite = 4x4 cellules. CSS : left = x*2, top = y*2.",
-    "left": [6, 10],
-    "right": [14, 10],
-    "socket": [4, 4],
-    "css": {
-      "top": 20,
-      "left": { "left": 12, "right": 28 },
-      "size": 8
-    }
-  },
+  "verifiedOn": ["1.132.0"],
+
+  "grid": 24,
+  "scale": 4,
+
   "palette": {
-    "carcasse_clair": "#454B52",
-    "carcasse_base": "#2E3338",
-    "carcasse_ombre": "#1B1F23",
-    "contour": "#0E1114",
-    "dalle_fond": "#121416",
-    "dalle_reflet": "#1C2024",
-    "oeil_coeur": "#FF6A2B",
-    "oeil_clair": "#FFA55C",
-    "oeil_ombre": "#C4380C",
-    "blanc_specular": "#E8EDF2"
+    "A": "#454B52",
+    "B": "#2E3338",
+    "C": "#1B1F23",
+    "D": "#0E1114",
+    "E": "#121416",
+    "F": "#1C2024",
+    "G": "#FF6A2B",
+    "H": "#FFA55C",
+    "I": "#C4380C",
+    "J": "#E8EDF2",
+    "K": "#372119",
+    "L": "#5C3120"
   },
-  "verifiedOn": ["1.132.0"]
+
+  "roles": {
+    "screen": "E",
+    "screenFlicker": "F",
+    "socket": "D",
+    "socketRim": "F",
+    "eyeCore": "G",
+    "eyeLight": "H",
+    "eyeShadow": "I",
+    "halo": "K",
+    "haloStrong": "L",
+    "spark": "J",
+    "shadow": "C",
+    "outline": "D",
+    "bubbleFill": "A",
+    "bubbleShine": "J"
+  },
+
+  "anchors": {
+    "eyes":   { "left": [6, 10], "right": [14, 10], "socket": [4, 4] },
+    "screen": [5, 8, 18, 16],
+    "body":   [2, 2, 21, 19],
+    "feet":   [[5, 20, 8, 22], [15, 20, 18, 22]]
+  },
+
+  "base": [
+    "........................",
+    "........................",
+    "..DDDDDDDDDDDDDDDDDDDD..",
+    "..DJAAAAAAAAAAAAAAAAAD..",
+    "..DABBBBBBBBBBBBBBBBCD..",
+    "..DABBBBBBBBBBBBBBBBCD..",
+    "..DABBBBBBBBBBBBBBBBCD..",
+    "..DBDDDDDDDDDDDDDDDDCD..",
+    "..DBDEEEEEEEEEEEEEEDCD..",
+    "..DBDEEEEEEEEEEEEEEDCD..",
+    "..DBDEEEEEEEEEEEEEEDCD..",
+    "..DBDEEEEEEEEEEEEEEDCD..",
+    "..DBDEEEEEEEEEEEEEEDCD..",
+    "..DBDEEEEEEEEEEEEEEDCD..",
+    "..DBDEEEEEEEEEEEEEEDCD..",
+    "..DBDEEEEEEEEEEEEEEDCD..",
+    "..DBDEEEEEEEEEEEEEEDCD..",
+    "..DBDDDDDDDDDDDDDDDDCD..",
+    "..DCCCCCCCCCCCCCCCCCCD..",
+    "..DDDDDDDDDDDDDDDDDDDD..",
+    ".....DDDD......DDDD.....",
+    ".....DCCD......DCCD.....",
+    ".....DDDD......DDDD.....",
+    "........................"
+  ]
 }

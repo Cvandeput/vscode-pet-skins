@@ -1,0 +1,100 @@
+{
+  "format": 1,
+  "id": "codex",
+  "name": "Codex",
+  "description": "Petit livre ouvert, large et bas : deux pages de parchemin de part et d'autre d'une reliure de cuir rouge, un œil d'encre turquoise sur chaque page, et deux pattes courtes qui dépassent sous la couverture.",
+  "author": "Corentin Vandeput",
+  "license": "MIT",
+  "verifiedOn": ["1.132.0"],
+
+  "grid": 24,
+  "scale": 4,
+
+  "speechBubble": true,
+
+  "palette": {
+    "A": "#F4E8C8",
+    "B": "#E3D3AB",
+    "C": "#C2A97E",
+    "D": "#9A342C",
+    "E": "#63201C",
+    "F": "#7A5233",
+    "G": "#1E1712",
+    "H": "#3B2E23",
+    "I": "#2FA8A8",
+    "J": "#8CE6E0",
+    "K": "#17696E",
+    "L": "#F0B23A",
+    "M": "#B79E70",
+    "N": "#8D7549",
+    "O": "#FFFDF4"
+  },
+
+  "roles": {
+    "pageFront": "A",
+    "pageBack": "C",
+    "ink": "G",
+    "socket": "G",
+    "socketRim": "H",
+    "eyeCore": "I",
+    "eyeLight": "J",
+    "eyeShadow": "K",
+    "halo": "M",
+    "haloStrong": "N",
+    "spark": "L",
+    "shadow": "H",
+    "outline": "G",
+    "bubbleFill": "A",
+    "bubbleShine": "O"
+  },
+
+  "anchors": {
+    "eyes":   { "left": [5, 10], "right": [15, 10], "socket": [4, 4] },
+    "body":   [2, 8, 21, 20],
+    "mouth":  [11, 16],
+    "bubble": [5, 6, 18, 15],
+    "feet":   [[6, 21, 8, 22], [15, 21, 17, 22]]
+  },
+
+  "animations": {
+    "idle":               { "builtin": "idle", "params": { "bob": 1, "bobAt": 20, "blink": [23, 27] } },
+    "idle-tracking":      { "builtin": "idle", "params": { "bob": 1, "bobAt": 20, "blink": [23, 27] } },
+    "rendering-tracking": { "builtin": "pages", "params": { "rect": [4, 15, 19, 18], "turns": 5 } },
+    "clapping-tracking":  { "builtin": "clapping", "params": { "sparkY": 11 } },
+    "cool":               { "builtin": "cool", "params": { "drop": 3 } },
+    "sleep":              { "builtin": "sleep", "params": { "settle": [1, 1, 2, 2, 2, 2, 1, 1] } },
+    "waking":             { "builtin": "waking", "params": { "mode": "rise", "settle": [2, 2, 1, 1, 1, 0, 0, 0] } },
+    "typing":             { "builtin": "pages", "params": { "rect": [4, 15, 19, 18], "turns": 1 } },
+    "love":               { "builtin": "love", "params": { "heartX": 11, "riseFrom": 2 } },
+    "speech":             { "builtin": "speech" },
+    "yapping":            { "builtin": "yapping", "params": { "widths": [1, 3, 5, 3, 2] } },
+    "search":             { "builtin": "search", "params": { "depth": 14, "gaze": 1, "prop": "magnifier", "propX": 18, "propY": 6 } }
+  },
+
+  "base": [
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "..GGGGGGGGG..GGGGGGGGG..",
+    "..GDAAAAAAAGGAAAAAAAEG..",
+    "..GDBBBBBBCFFCBBBBBBEG..",
+    "..GDBBBBBBCFFCBBBBBBEG..",
+    "..GDBBBBBBCFFCBBBBBBEG..",
+    "..GDBBBBBBCFFCBBBBBBEG..",
+    "..GDBBBBBBCFFCBBBBBBEG..",
+    "..GDNNNNNBCFFCBNNNNNEG..",
+    "..GDBBBBBBCFFCBBBBBBEG..",
+    "..GDNNNBBBCFFCBBBNNNEG..",
+    "..GDCCCCCCCFFCCCCCCCEG..",
+    ".GEDDDDDDDDDDDDDDDDDDEG.",
+    ".GGGGGGGGGGGGGGGGGGGGGG.",
+    "......FFF......FFF......",
+    "......GGG......GGG......",
+    "........................"
+  ]
+}

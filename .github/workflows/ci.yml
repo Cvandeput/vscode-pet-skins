@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  # ------------------------------------------------------------------ scripts
+  powershell:
+    name: Scripts PowerShell
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Le test qui aurait attrape le bug de parsing : sans BOM, Windows
+      # PowerShell 5.1 lit le fichier en cp1252 et casse sur le premier
+      # caractere accentue dans une chaine.
+      - name: BOM UTF-8 sur tous les .ps1
+        shell: pwsh
+        run: |
+          $bad = @()
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $b = [IO.File]::ReadAllBytes($_.FullName)
+            if ($b.Length -lt 3 -or $b[0] -ne 0xEF -or $b[1] -ne 0xBB -or $b[2] -ne 0xBF) {
+              $bad += $_.FullName
+            } else {
+              Write-Host "OK    $($_.FullName)"
+            }
+          }
+          if ($bad) {
+            Write-Host '::error::BOM UTF-8 (EF BB BF) manquant :'
+            $bad | ForEach-Object { Write-Host "  $_" }
+            exit 1
+          }
+
+      - name: Analyse syntaxique
+        shell: pwsh
+        run: |
+          $fail = $false
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName, [ref]$null, [ref]$errors)
+            if ($errors) {
+              $fail = $true
+              Write-Host "::error file=$($_.FullName)::$($errors.Count) erreur(s) de parsing"
+              $errors | ForEach-Object { Write-Host "  $($_.Message)" }
+            }
+          }
+          if ($fail) { exit 1 }
+
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -AllowClobber
+          $found = Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Error
+          $found += Invoke-ScriptAnalyzer -Path install.ps1 -Severity Error
+          if ($found) {
+            $found | Format-Table -AutoSize | Out-String | Write-Host
+            Write-Host "::error::$($found.Count) erreur(s) PSScriptAnalyzer"
+            exit 1
+          }
+          Write-Host 'PSScriptAnalyzer : aucune erreur'
+
+      # Va jusqu'au clone, s'arrete avant de toucher a une installation de
+      # VS Code (le runner n'en a pas, et on n'y toucherait pas de toute facon).
+      - name: install.ps1 a blanc
+        shell: pwsh
+        env:
+          PETSKIN_DIR: ${{ runner.temp }}\petskin-clone
+          PETSKIN_YES: '1'
+          PETSKIN_NOINSTALL: '1'
+        run: Get-Content .\install.ps1 -Raw | Invoke-Expression
+
+      - name: Install-PetSkin.ps1 -List
+        shell: pwsh
+        run: .\scripts\Install-PetSkin.ps1 -List
+
+  # -------------------------------------------------------------------- skins
+  skins:
+    name: Skins et sprites
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Dependances
+        run: python -m pip install --quiet pillow jsonschema
+
+      # Schema versionne dans le depot, 48 sprites, dimensions, nb de frames.
+      - name: Conformite des skins
+        run: python tools/check_skins.py
+
+      # Le coeur du contrat : les sprites et le CSS commites sont exactement
+      # ceux que produit le generateur a partir de skin.json.
+      - name: Regeneration reproductible
+        run: |
+          python generator/petgen.py
+          if ! git diff --exit-code -- skins; then
+            git diff --stat -- skins
+            echo '::error::la regeneration produit un diff : les sprites ou le'
+            echo '::error::pet.css commites ne correspondent plus a skin.json.'
+            echo '::error::Relance `python generator/petgen.py` et commite.'
+            exit 1
+          fi
+
+      # Deux passes de suite doivent donner le meme octet : sans quoi le test
+      # ci-dessus serait instable.
+      - name: Generateur deterministe
+        run: |
+          python generator/petgen.py
+          git diff --exit-code -- skins

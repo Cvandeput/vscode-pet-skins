@@ -1,5 +1,10 @@
 *.md text eol=lf
 *.ps1 text eol=crlf
 *.py text eol=lf
+# generes par generator/petgen.py, qui ecrit en LF : forcer la meme fin de
+# ligne partout, sinon `git diff --exit-code` en CI depend de la plateforme.
+*.css text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
 *.png binary
 *.gif binary

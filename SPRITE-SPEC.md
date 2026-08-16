@@ -243,7 +243,40 @@ recherche `@tag:experimental` dans les Settings ne renvoie rien.
 
 ---
 
-## 10. Checksums
+## 10. `speech` boucle à l'infini — la bulle ne doit jamais grossir
+
+L'état `speech` ne dessine pas le personnage : il dessine **la bulle de
+dialogue**, dans un canvas séparé (`.chat-pet-speech-bubble`).
+
+VS Code **répète l'animation en boucle** tant que l'état dure. Toute frame qui
+représente une phase d'apparition — bulle plus petite, en train de grossir —
+sera donc rejouée en boucle, et la bulle se dégonflera et se regonflera
+indéfiniment. C'est le piège : sur une planche de frames, la séquence
+« grossit puis se stabilise » paraît juste ; en animation, elle pulse.
+
+Deux règles :
+
+1. **La bulle atteint sa taille définitive dès la frame 0** et n'est plus
+   jamais redessinée plus petite. Seul le contenu s'anime.
+2. **Le contenu doit boucler proprement** sur les 6 frames. Trois points dont
+   un seul est allumé à la fois (`i % 3 == k`) boucle deux fois par cycle sans
+   discontinuité. Une séquence cumulative qui finit sur « tous allumés »
+   marque une rupture visible au raccord.
+
+Un skin peut aussi ne **pas** vouloir de bulle. `skin.json` expose pour ça :
+
+```json
+"speechBubble": false
+```
+
+Les 6 frames deviennent entièrement transparentes, et VS Code n'affiche rien.
+Le code de la bulle reste dans le générateur, disponible pour les autres
+skins ; l'option est réversible sans rien redessiner. Dans ce dépôt, `nixie`
+et `vapor` sont à `false`, `codex` à `true`.
+
+---
+
+## 11. Checksums
 
 `product.json` contient une liste `checksums`. Y figurent :
 

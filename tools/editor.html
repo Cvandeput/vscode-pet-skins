@@ -115,7 +115,9 @@
     <h2>Repères</h2>
     <div class="anchors" id="anchors"></div>
     <div class="hint">Orbite = 4×4 cellules. Le CSS se déduit :
-      <code>left = x×2</code>, <code>top = y×2</code>.</div>
+      <code>left = x×2</code>, <code>top = y×2</code>.<br>
+      Dalle et pieds sont facultatifs : vider le champ les supprime
+      (personnage flottant, ou sans écran).</div>
 
     <h2 style="margin-top:14px">Aperçu</h2>
     <div class="row">
@@ -135,6 +137,9 @@
       bouge la souris sur l'aperçu.</div>
 
     <h2 style="margin-top:14px">CSS généré</h2>
+    <div class="hint" style="margin-bottom:4px">Pour vérifier ici. Le vrai
+      <code>pet.css</code> est produit par <code>generator/petgen.py</code>
+      depuis <code>skin.json</code> — ne le colle pas à la main.</div>
     <textarea id="cssOut" readonly style="height:96px"></textarea>
     <div class="hint" id="check"></div>
   </div>
@@ -147,8 +152,11 @@
 // ------------------------------------------------------------------ modèle
 const N = 24, CELL = 20;
 const NIXIE = {
-  format:1, id:'nixie', name:'Nixie', author:'', license:'MIT',
+  format:1, id:'nixie', name:'Nixie', description:'', author:'', license:'MIT',
+  verifiedOn:['1.132.0'],
   grid:24, scale:4,
+  // false rend les 6 frames de `speech` transparentes : pas de bulle du tout.
+  speechBubble:false,
   palette:{A:'#454B52',B:'#2E3338',C:'#1B1F23',D:'#0E1114',E:'#121416',
            F:'#1C2024',G:'#FF6A2B',H:'#FFA55C',I:'#C4380C',J:'#E8EDF2',
            K:'#372119',L:'#5C3120'},
@@ -245,21 +253,34 @@ function buildRoles(){
 function buildAnchors(){
   const box=document.getElementById('anchors'); box.innerHTML='';
   const A=S.anchors;
-  const mk=(label,get,set)=>{
+  const mk=(label,get,set,clear)=>{
     const l=document.createElement('label');
     l.innerHTML=`<span>${label}</span>`;
-    const i=document.createElement('input'); i.value=get().join(',');
-    i.onchange=e=>{ const v=e.target.value.split(',').map(n=>parseInt(n.trim(),10));
-                    if(v.every(n=>!isNaN(n))){ set(v); draw(); syncCss(); } };
+    const i=document.createElement('input');
+    const v0=get(); i.value=v0?v0.join(','):'';
+    i.placeholder = clear ? 'vide = aucun' : '';
+    i.onchange=e=>{
+      const raw=e.target.value.trim();
+      if(!raw && clear){ clear(); draw(); syncCss(); return; }
+      const v=raw.split(',').map(n=>parseInt(n.trim(),10));
+      if(v.every(n=>!isNaN(n))){ set(v); draw(); syncCss(); }
+    };
     l.append(i); box.append(l);
   };
   mk('œil gauche x,y',()=>A.eyes.left,v=>A.eyes.left=v.slice(0,2));
   mk('œil droit x,y',()=>A.eyes.right,v=>A.eyes.right=v.slice(0,2));
-  mk('orbite l,h',()=>A.eyes.socket,v=>A.eyes.socket=v.slice(0,2));
-  mk('dalle x0,y0,x1,y1',()=>A.screen,v=>A.screen=v.slice(0,4));
+  mk('orbite l,h',()=>A.eyes.socket||[4,4],v=>A.eyes.socket=v.slice(0,2));
+  // dalle et pieds sont facultatifs : vider le champ les supprime, ce qui
+  // est le cas d'un personnage flottant ou sans écran.
+  mk('dalle x0,y0,x1,y1',()=>A.screen,v=>A.screen=v.slice(0,4),
+     ()=>delete A.screen);
   mk('corps x0,y0,x1,y1',()=>A.body,v=>A.body=v.slice(0,4));
-  mk('pied G x0,y0,x1,y1',()=>A.feet[0],v=>A.feet[0]=v.slice(0,4));
-  mk('pied D x0,y0,x1,y1',()=>A.feet[1],v=>A.feet[1]=v.slice(0,4));
+  mk('pied G x0,y0,x1,y1',()=>A.feet&&A.feet[0],
+     v=>{A.feet=A.feet||[]; A.feet[0]=v.slice(0,4);},
+     ()=>{ if(A.feet) A.feet.splice(0,1); });
+  mk('pied D x0,y0,x1,y1',()=>A.feet&&A.feet[1],
+     v=>{A.feet=A.feet||[]; A.feet[1]=v.slice(0,4);},
+     ()=>{ if(A.feet) A.feet.splice(1,1); });
 }
 
 // ------------------------------------------------------------------ dessin
@@ -288,11 +309,12 @@ function box(x0,y0,w,h,color,label){
   ctx.restore();
 }
 function drawAnchors(){
-  const A=S.anchors, [sw,sh]=A.eyes.socket;
-  box(A.screen[0],A.screen[1],A.screen[2]-A.screen[0]+1,A.screen[3]-A.screen[1]+1,'#2E75B6','dalle');
+  const A=S.anchors, [sw,sh]=A.eyes.socket||[4,4];
+  if(A.screen)
+    box(A.screen[0],A.screen[1],A.screen[2]-A.screen[0]+1,A.screen[3]-A.screen[1]+1,'#2E75B6','dalle');
   box(A.eyes.left[0],A.eyes.left[1],sw,sh,'#FF6A2B','œil G');
   box(A.eyes.right[0],A.eyes.right[1],sw,sh,'#FF6A2B','œil D');
-  A.feet.forEach((f,i)=>box(f[0],f[1],f[2]-f[0]+1,f[3]-f[1]+1,'#6ab04c','pied '+(i?'D':'G')));
+  (A.feet||[]).forEach((f,i)=>box(f[0],f[1],f[2]-f[0]+1,f[3]-f[1]+1,'#6ab04c','pied '+(i?'D':'G')));
 }
 
 // ------------------------------------------------------------------ souris
@@ -352,7 +374,7 @@ function shifted(oy){
 function put(g,x,y,c){ if(x>=0&&y>=0&&x<N&&y<N) g[y][x]=c; }
 
 function eyesOn(g,oy,blink){
-  const A=S.anchors, R=S.roles, [sw,sh]=A.eyes.socket;
+  const A=S.anchors, R=S.roles, [sw,sh]=A.eyes.socket||[4,4];
   for(const [ex,ey] of [A.eyes.left,A.eyes.right]){
     if(blink){ for(let i=0;i<sw;i++) put(g,ex+i,ey+sh-1+oy,R.socket); continue; }
     for(let i=0;i<sw;i++) put(g,ex+i,ey+oy,R.socketRim);
@@ -387,7 +409,7 @@ setInterval(()=>{ if(playing){ frame++; drawPreview(); } },40);
 
 // ------------------------------------------------------------------ CSS + contrôles
 function syncCss(){
-  const A=S.anchors, [sw,sh]=A.eyes.socket;
+  const A=S.anchors, [sw,sh]=A.eyes.socket||[4,4];
   const css =
 `.chat-pet-eye        { top: ${A.eyes.left[1]*2}px; width: ${sw*2}px; height: ${sh*2}px; }
 .chat-pet-eye.left   { left: ${A.eyes.left[0]*2}px; }
@@ -399,10 +421,11 @@ function syncCss(){
 
   const msgs=[];
   if(sw<4||sh<4) msgs.push('orbite < 4×4 : la pupille débordera quand le regard part sur le côté');
-  const A2=A.screen;
-  for(const [ex,ey] of [A.eyes.left,A.eyes.right])
+  const A2=A.screen;   // facultatif : un personnage peut n'avoir aucune dalle
+  if(A2) for(const [ex,ey] of [A.eyes.left,A.eyes.right])
     if(ex<A2[0]||ey<A2[1]||ex+sw-1>A2[2]||ey+sh-1>A2[3])
       msgs.push('une orbite sort de la dalle');
+  if(!S.verifiedOn) msgs.push('verifiedOn absent : la CI le refusera');
   document.getElementById('check').innerHTML =
     msgs.length ? '<span class="warn">⚠ '+msgs.join('<br>⚠ ')+'</span>'
                 : 'géométrie cohérente';
@@ -438,7 +461,13 @@ addEventListener('keydown',e=>{
 
 document.getElementById('btnExport').onclick=()=>{
   S.base = grid.map(r=>r.join(''));
-  S.grid = N; S.scale = 4;
+  S.grid = N; S.scale = 4; S.format = 1;
+  // champs exigés par schema/skin.schema.json
+  if(!S.verifiedOn || !S.verifiedOn.length) S.verifiedOn = ['1.132.0'];
+  if(!S.license) S.license = 'MIT';
+  if(!S.author)  S.author  = 'inconnu';
+  if(S.anchors && Array.isArray(S.anchors.feet) && !S.anchors.feet.length)
+    S.anchors.feet = [];   // personnage flottant : le tableau vide est légal
   const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download='skin.json'; a.click();

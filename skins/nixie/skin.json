@@ -5,7 +5,7 @@
   "description": "Écran d'ordinateur sur pieds, châssis gris foncé, yeux rouge-orangé qui suivent le curseur. Nommé d'après les tubes Nixie, ces afficheurs en verre sombre à lueur orange.",
   "author": "Corentin Vandeput",
   "license": "MIT",
-  "verifiedOn": ["1.132.0"],
+  "verifiedOn": ["1.133.0"],
 
   "grid": 24,
   "scale": 4,

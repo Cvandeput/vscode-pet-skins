@@ -5,7 +5,7 @@
   "description": "Petit livre ouvert, large et bas : deux pages de parchemin de part et d'autre d'une reliure de cuir rouge, un œil d'encre turquoise sur chaque page, et deux pattes courtes qui dépassent sous la couverture.",
   "author": "Corentin Vandeput",
   "license": "MIT",
-  "verifiedOn": ["1.132.0"],
+  "verifiedOn": ["1.133.0"],
 
   "grid": 24,
   "scale": 4,

@@ -5,7 +5,7 @@
   "description": "Entité flottante, ni pieds ni écran : une flamme spectrale à la tête large qui s'effile vers le bas et s'y dissipe, cernée d'un halo diffus. Palette froide, du blanc du cœur au violet sombre des bords, et deux yeux en fente lumineuse qui suivent le curseur.",
   "author": "Corentin Vandeput",
   "license": "MIT",
-  "verifiedOn": ["1.132.0"],
+  "verifiedOn": ["1.133.0"],
 
   "grid": 24,
   "scale": 4,

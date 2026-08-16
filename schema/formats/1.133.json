@@ -1,0 +1,220 @@
+{
+  "$schema": "../format.schema.json",
+  "id": "1.133",
+  "vscode": [
+    "1.133.0"
+  ],
+  "description": "Relevé sur une installation réelle de VS Code 1.133.0 (commit a5b500951314efd502d07465bd138dfbd714a960). Neuf états s'ajoutent à la 1.132, et la frame cesse d'être carrée : les états à accessoire (typing, press-button, sing) sont plus larges, sing est aussi plus haute. La taille d'une frame se lit sur le PNG simple, jamais en supposant un carré.",
+  "states": [
+    {
+      "key": "clapping-tracking",
+      "state": "clapping",
+      "tracking": true,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 13,
+      "spritesheet": true
+    },
+    {
+      "key": "cool",
+      "state": "cool",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 9,
+      "spritesheet": true
+    },
+    {
+      "key": "falling",
+      "state": "falling",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 4,
+      "spritesheet": true
+    },
+    {
+      "key": "idle",
+      "state": "idle",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 50,
+      "spritesheet": true
+    },
+    {
+      "key": "idle-tracking",
+      "state": "idle",
+      "tracking": true,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 50,
+      "spritesheet": true
+    },
+    {
+      "key": "jump",
+      "state": "jump",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 6,
+      "spritesheet": true
+    },
+    {
+      "key": "love",
+      "state": "love",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 6,
+      "spritesheet": true
+    },
+    {
+      "key": "press-button",
+      "state": "press-button",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 160,
+      "frameHeight": 96,
+      "frames": 6,
+      "spritesheet": true
+    },
+    {
+      "key": "rendering-tracking",
+      "state": "rendering",
+      "tracking": true,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 50,
+      "spritesheet": true
+    },
+    {
+      "key": "respawn",
+      "state": "respawn",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 6,
+      "spritesheet": true
+    },
+    {
+      "key": "revive-sign",
+      "state": "revive-sign",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 1,
+      "spritesheet": false
+    },
+    {
+      "key": "search",
+      "state": "search",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 4,
+      "spritesheet": true
+    },
+    {
+      "key": "sing",
+      "state": "sing",
+      "tracking": false,
+      "suffix": 124,
+      "frameWidth": 164,
+      "frameHeight": 124,
+      "frames": 4,
+      "spritesheet": true
+    },
+    {
+      "key": "sleep",
+      "state": "sleep",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 8,
+      "spritesheet": true
+    },
+    {
+      "key": "speech",
+      "state": "speech",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 6,
+      "spritesheet": true
+    },
+    {
+      "key": "speechless",
+      "state": "speechless",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 5,
+      "spritesheet": true
+    },
+    {
+      "key": "splat",
+      "state": "splat",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 4,
+      "spritesheet": true
+    },
+    {
+      "key": "typing",
+      "state": "typing",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 168,
+      "frameHeight": 96,
+      "frames": 2,
+      "spritesheet": true
+    },
+    {
+      "key": "waking",
+      "state": "waking",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 8,
+      "spritesheet": true
+    },
+    {
+      "key": "worry",
+      "state": "worry",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 2,
+      "spritesheet": true
+    },
+    {
+      "key": "yapping",
+      "state": "yapping",
+      "tracking": false,
+      "suffix": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frames": 5,
+      "spritesheet": true
+    }
+  ]
+}

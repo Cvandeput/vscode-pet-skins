@@ -4,7 +4,7 @@
   "vscode": [
     "1.133.0"
   ],
-  "description": "Relevé sur une installation réelle de VS Code 1.133.0 (commit a5b500951314efd502d07465bd138dfbd714a960). Neuf états s'ajoutent à la 1.132, et la frame cesse d'être carrée : les états à accessoire (typing, press-button, sing) sont plus larges, sing est aussi plus haute. La taille d'une frame se lit sur le PNG simple, jamais en supposant un carré.",
+  "description": "Relevé sur une installation réelle de VS Code 1.133.0 (commit a5b500951314efd502d07465bd138dfbd714a960) par tools/probe_format.py.\nC'est le seul format supporté : le pet est arrivé en 1.131 et Microsoft le remanie encore d'une version à l'autre, si bien que viser plusieurs versions à la fois coûte plus qu'il ne rapporte. À la prochaine mise à jour, relancer le relevé et régénérer.\nDeux pièges : la frame n'est pas carrée sur les états à accessoire, et sa taille se lit sur le PNG simple — la déduire de la hauteur donne des comptes faux (336/96 = 3,5 pour typing). revive-sign n'a pas de spritesheet.",
   "states": [
     {
       "key": "clapping-tracking",

@@ -1,8 +1,15 @@
 # Spécification des sprites du pet VS Code
 
 Tout ce qu'il faut savoir pour dessiner ses propres sprites. Ces informations
-proviennent de la lecture directe du bundle de VS Code 1.132 — elles ne sont
+proviennent de la lecture directe du bundle de VS Code — elles ne sont
 documentées nulle part officiellement.
+
+**Elles décrivent la 1.133.** Microsoft remanie le pet d'une version à l'autre,
+et les chiffres ci-dessous ne valent que pour celle-là : la 1.132 avait 12
+états, 48 fichiers et des frames toujours carrées. Le format exact est relevé
+dans [`schema/formats/1.133.json`](schema/formats/1.133.json), et
+[`tools/probe_format.py`](tools/probe_format.py) le régénère depuis une
+installation.
 
 ---
 
@@ -17,7 +24,8 @@ Le segment `<hash-de-build>` change à chaque mise à jour. Ne jamais le coder
 en dur : le résoudre en cherchant le sous-dossier qui contient
 `resources\app\out`.
 
-48 fichiers : 24 spritesheets et 24 frames simples.
+82 fichiers en 1.133 : 21 états x 2 variantes, chacun avec une frame simple et
+une spritesheet — sauf `revive-sign`, qui n'a pas de spritesheet.
 
 ---
 
@@ -25,16 +33,30 @@ en dur : le résoudre en cherchant le sous-dossier qui contient
 
 | Propriété | Valeur |
 |---|---|
-| Frame | PNG RGBA, **96 × 96**, fond transparent |
-| Spritesheet | bande **horizontale**, largeur = 96 × nb_frames, hauteur = **96** |
-| Rendu | `<canvas>` 96×96 interne, affiché en **48×48** |
+| Frame | PNG RGBA, fond transparent, **taille propre à chaque état** |
+| Spritesheet | bande **horizontale**, largeur = largeur_frame × nb_frames |
+| Rendu | `<canvas>` à la taille de la frame, affiché en **48×48** |
 | Filtrage | `imageSmoothingEnabled = false`, `image-rendering: pixelated` |
-| Blit | `ctx.drawImage(img, i*96, 0, 96, 96, 0, 0, 96, 96)` |
+
+> **La frame n'est pas carrée, et elle n'est pas 96×96 partout.** C'était vrai
+> en 1.132, ça ne l'est plus en 1.133 : les états qui portent un accessoire
+> sont plus larges (`typing` 168×96, `press-button` 160×96) et `sing` est aussi
+> plus haute (164×124). Le pet y est dessiné à gauche, l'accessoire occupe la
+> largeur en trop.
+>
+> **La taille d'une frame se lit sur le PNG simple**, jamais en supposant un
+> carré. `buddy-typing-stable-96.spritesheet.png` fait 336×96 : divisée par 96
+> elle donnerait 3,5 frames, ce qui n'a aucun sens. La frame fait 168×96 et la
+> planche en contient 2.
+>
+> Le suffixe du nom de fichier (`-96`, `-124`) est la **hauteur** de la frame,
+> pas sa largeur.
 
 Les sprites d'origine sont dessinés en **12×12** logiques puis agrandis ×8.
 Rien n'oblige à respecter cette résolution : ce dépôt travaille en **24×24**
 agrandi ×4, ce qui donne deux fois plus de détail. Le seul impératif est
-d'aboutir à 96×96 par frame.
+d'aboutir exactement à la taille de frame que l'état réclame — d'où le fait que
+le facteur d'agrandissement doive diviser la largeur *et* la hauteur.
 
 ---
 
@@ -45,20 +67,29 @@ dur dans le JavaScript**. Elles ne sont pas dérivées de la largeur de l'image.
 Ajouter ou retirer une frame désynchronise l'animation sans rien casser de
 visible à l'arrêt.
 
-| État | Fichier | Frames | Tracking |
-|---|---|---|---|
-| idle | `buddy-idle-<v>-96.spritesheet.png` | 50 | non |
-| idle | `buddy-idle-<v>-tracking-96.spritesheet.png` | 50 | **oui** |
-| rendering | `buddy-rendering-<v>-tracking-96.spritesheet.png` | 50 | **oui** |
-| clapping | `buddy-clapping-<v>-tracking-96.spritesheet.png` | 13 | **oui** |
-| cool | `buddy-cool-<v>-96.spritesheet.png` | 9 | non |
-| sleep | `buddy-sleep-<v>-96.spritesheet.png` | 8 | non |
-| waking | `buddy-waking-<v>-96.spritesheet.png` | 8 | non |
-| typing | `buddy-typing-<v>-96.spritesheet.png` | 8 | non |
-| love | `buddy-love-<v>-96.spritesheet.png` | 6 | non |
-| speech | `buddy-speech-<v>-96.spritesheet.png` | 6 | non |
-| yapping | `buddy-yapping-<v>-96.spritesheet.png` | 5 | non |
-| search | `buddy-search-<v>-96.spritesheet.png` | 4 | non |
+| État | Fichier | Frames | Frame | Spritesheet | Tracking |
+|---|---|---|---|---|---|
+| `idle` | `buddy-idle-<v>-96` | 50 | 96×96 | oui | non |
+| `idle-tracking` | `buddy-idle-<v>-tracking-96` | 50 | 96×96 | oui | **oui** |
+| `rendering-tracking` | `buddy-rendering-<v>-tracking-96` | 50 | 96×96 | oui | **oui** |
+| `clapping-tracking` | `buddy-clapping-<v>-tracking-96` | 13 | 96×96 | oui | **oui** |
+| `cool` | `buddy-cool-<v>-96` | 9 | 96×96 | oui | non |
+| `sleep` | `buddy-sleep-<v>-96` | 8 | 96×96 | oui | non |
+| `waking` | `buddy-waking-<v>-96` | 8 | 96×96 | oui | non |
+| `jump` | `buddy-jump-<v>-96` | 6 | 96×96 | oui | non |
+| `love` | `buddy-love-<v>-96` | 6 | 96×96 | oui | non |
+| `press-button` | `buddy-press-button-<v>-96` | 6 | 160×96 | oui | non |
+| `respawn` | `buddy-respawn-<v>-96` | 6 | 96×96 | oui | non |
+| `speech` | `buddy-speech-<v>-96` | 6 | 96×96 | oui | non |
+| `speechless` | `buddy-speechless-<v>-96` | 5 | 96×96 | oui | non |
+| `yapping` | `buddy-yapping-<v>-96` | 5 | 96×96 | oui | non |
+| `falling` | `buddy-falling-<v>-96` | 4 | 96×96 | oui | non |
+| `search` | `buddy-search-<v>-96` | 4 | 96×96 | oui | non |
+| `sing` | `buddy-sing-<v>-124` | 4 | 164×124 | oui | non |
+| `splat` | `buddy-splat-<v>-96` | 4 | 96×96 | oui | non |
+| `typing` | `buddy-typing-<v>-96` | 2 | 168×96 | oui | non |
+| `worry` | `buddy-worry-<v>-96` | 2 | 96×96 | oui | non |
+| `revive-sign` | `buddy-revive-sign-<v>-96` | 1 | 96×96 | **non** | non |
 
 `<v>` vaut `stable` ou `insiders` : deux jeux complets, géométriquement
 identiques, sélectionnables par **clic droit sur le pet**. Produire les deux
@@ -84,7 +115,8 @@ images de transition.
 
 ## 4. Frames simples — deux usages
 
-Les 24 fichiers sans `.spritesheet` servent dans deux cas :
+Les fichiers sans `.spritesheet` — un par état et par variante — servent dans
+deux cas :
 
 1. **Reduced motion.** Si `accessibilityService.isMotionReduced()`, tous les
    états basculent sur leur frame simple.

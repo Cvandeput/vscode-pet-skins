@@ -4,7 +4,7 @@ Remplace le pet expérimental de VS Code par une mascotte personnalisée, et
 documente le format pour que tu puisses dessiner la tienne.
 
 Trois skins sont fournis — **Nixie**, **Vapor** et **Codex** — mais l'essentiel
-du dépôt est ailleurs : un générateur qui dérive les 217 frames imposées par
+du dépôt est ailleurs : un générateur qui dérive les 249 frames imposées par
 VS Code à partir d'un seul fichier de description, et la
 **[spécification complète du format](SPRITE-SPEC.md)**, reconstituée par
 lecture du bundle — elle n'existe nulle part ailleurs.
@@ -20,7 +20,7 @@ irm https://raw.githubusercontent.com/Cvandeput/vscode-pet-skins/main/install.ps
 ```
 
 > **Ce script modifie ton installation de VS Code et demande une élévation
-> (invite UAC).** Il remplace 48 fichiers PNG, injecte un bloc `<style>` dans
+> (invite UAC).** Il remplace 82 fichiers PNG, injecte un bloc `<style>` dans
 > `workbench.html` et recalcule un checksum dans `product.json`. Tout est
 > sauvegardé avant écriture et réversible par `Uninstall-PetSkin.ps1` — mais
 > ce sont bien des fichiers de programme qui sont réécrits. Si tu préfères
@@ -46,8 +46,47 @@ Puis, dans VS Code, tape `/vscode-pet` dans le chat.
 
 ---
 
+## Ça cassera à la prochaine mise à jour de VS Code
+
+Autant le dire tout de suite : **ce dépôt suit une fonctionnalité que Microsoft
+remanie encore**, et chaque mise à jour de VS Code peut le casser.
+
+Ce n'est pas une crainte théorique, c'est déjà arrivé. Entre la **1.132** et la
+**1.133**, le pet est passé de 12 à 21 états, `typing` de 8 frames à 2, et la
+frame a cessé d'être carrée : les états à accessoire sont désormais plus larges
+(`typing` 168×96, `press-button` 160×96) et `sing` est plus haute (164×124).
+Neuf états sont apparus — `falling`, `jump`, `press-button`, `respawn`,
+`revive-sign`, `sing`, `speechless`, `splat`, `worry` — signe qu'un petit jeu
+s'est greffé sur la mascotte.
+
+**Le dépôt cible aujourd'hui la 1.133.0, et rien d'autre.** Viser plusieurs
+versions à la fois coûterait plus que de suivre la dernière. Je regarde à
+chaque sortie de VS Code et je mets à jour.
+
+Ce qui rend ce suivi tenable, c'est que **le format est une donnée, pas du
+code** : `schema/formats/1.133.json` décrit état par état le nom de fichier, le
+nombre de frames, la taille de frame et la présence d'une spritesheet. Après
+une mise à jour, la remise à niveau tient en trois commandes :
+
+```bash
+python tools/probe_format.py --out schema/formats/<nouvelle-version>.json
+python generator/petgen.py
+python tools/check_skins.py
+```
+
+`probe_format.py` lit l'installation de VS Code et en déduit le format ; le
+générateur s'y conforme. Il ne reste à dessiner que les états réellement
+nouveaux.
+
+Si tu installes le skin sur une version non relevée, l'installateur **refuse
+d'écrire** plutôt que de produire un pet incohérent, et te dit quelle commande
+lancer. Rien n'est cassé, rien n'est à réparer à la main.
+
+---
+
 ## Sommaire
 
+- [Ça cassera à la prochaine mise à jour](#ça-cassera-à-la-prochaine-mise-à-jour-de-vs-code)
 - [Les trois personnages](#les-trois-personnages)
 - [C'est quoi ce pet ?](#cest-quoi-ce-pet-)
 - [Compatibilité](#compatibilité)
@@ -117,7 +156,7 @@ dépôt remplace les assets et surcharge le CSS.
 
 | | |
 |---|---|
-| VS Code | ≥ 1.131 — vérifié sur **1.132.0** |
+| VS Code | **1.133.0** — la seule version supportée, voir ci-dessous |
 | OS | Windows (scripts PowerShell) |
 | Droits | administrateur si VS Code est dans `Program Files` |
 
@@ -154,7 +193,7 @@ sont affichées en cas d'échec.
 | `-VSCodeRoot <chemin>` | force la racine d'installation |
 | `-SpriteDir` / `-CssFile` | surcharge ponctuelle des chemins |
 
-**Le script ne fait rien s'il n'y a rien à faire.** Si les 48 sprites cibles
+**Le script ne fait rien s'il n'y a rien à faire.** Si les 82 sprites cibles
 sont déjà identiques aux sources et que le marqueur `<!-- pet-skin:start -->`
 est dans `workbench.html`, il l'annonce et sort — sans sauvegarde et sans
 écriture. C'est ce qui rend la tâche planifiée supportable : relancée à chaque
@@ -166,7 +205,7 @@ ouverture de session, elle ne crée plus une sauvegarde complète à chaque fois
 powershell -ExecutionPolicy Bypass -File .\scripts\Uninstall-PetSkin.ps1
 ```
 
-Restaure les 48 sprites, `workbench.html` et `product.json`, vérifie chaque
+Restaure les 82 sprites, `workbench.html` et `product.json`, vérifie chaque
 fichier par SHA-256, et supprime la tâche planifiée si elle existe.
 
 Par défaut, c'est la sauvegarde **d'origine** qui est restaurée — celle prise
@@ -215,7 +254,7 @@ Le tri par date reste en dernier recours, avec un avertissement.
 
 Trois couches, chacune indépendante et réversible.
 
-**1. Les sprites.** 48 PNG remplacés dans
+**1. Les sprites.** 82 PNG remplacés dans
 `resources\app\out\vs\workbench\contrib\chat\browser\widget\media\chatPet\`.
 Ces fichiers ne figurent pas dans la liste `checksums` de `product.json` : les
 remplacer seuls ne déclenche **aucun avertissement**.
@@ -244,7 +283,7 @@ bannière.
 
 ```
 generator/
-├── petgen.py             lit skin.json, écrit les 48 PNG et pet.css
+├── petgen.py             lit skin.json, écrit les 82 PNG et pet.css
 └── preview.py            bannière animée et planche des états
 schema/skin.schema.json   le format, versionné — validé en CI
 tools/
@@ -253,7 +292,7 @@ tools/
 skins/
 └── nixie/
     ├── skin.json         LE fichier source : dessin, palette, repères, animations
-    ├── sprites/          les 48 PNG produits
+    ├── sprites/          les 82 PNG produits
     ├── css/pet.css       généré, ne pas éditer à la main
     └── preview/          bannière, planche des états, gifs
 ```
@@ -277,7 +316,7 @@ annulation. Raccourcis `b` `e` `g` `i` et `Ctrl+Z`.
 ```bash
 pip install pillow
 mkdir -p skins/<ton-skin> && mv ~/Downloads/skin.json skins/<ton-skin>/
-python generator/petgen.py <ton-skin>      # 48 PNG + css/pet.css
+python generator/petgen.py <ton-skin>      # 82 PNG + css/pet.css
 python generator/preview.py <ton-skin>     # bannière et planche des états
 python tools/check_skins.py <ton-skin>     # les contrôles de la CI, en local
 ```
@@ -371,8 +410,8 @@ aucun n'est visible sur une image fixe :
 - analyse syntaxique et `PSScriptAnalyzer` sans erreur ;
 - chaque `skins/*/skin.json` validé contre
   [`schema/skin.schema.json`](schema/skin.schema.json) ;
-- les 48 sprites : noms complets, hauteur 96, largeur multiple de 96, nombre de
-  frames conforme au tableau de la spec ;
+- les 82 sprites : noms complets, et pour chaque état la taille de frame et le
+  nombre de frames annoncés par `schema/formats/1.133.json` ;
 - **régénération de tous les skins, puis `git diff --exit-code`** : les PNG et
   les `pet.css` commités doivent être exactement ceux que produit le générateur.
 
@@ -407,7 +446,7 @@ bulle plus petite qu'une autre. Voir la [section 10](SPRITE-SPEC.md).
 avertissement : les compteurs de frames peuvent avoir changé, vérifie le rendu.
 
 **Le pet n'apparaît pas.** Tape `/vscode-pet` dans le chat. Demande VS Code
-≥ 1.131.
+≥ 1.131 ; le skin, lui, vise la 1.133.
 
 ## Risques
 
@@ -422,13 +461,14 @@ irréversible, mais autant savoir ce qu'on fait.
 - Rien ne touche aux réglages, extensions, ni données utilisateur.
 
 `/vscode-pet` est marqué *highly experimental* par Microsoft. Noms de fichiers,
-classes CSS et compteurs de frames peuvent changer d'une version à l'autre,
-voire disparaître.
+classes CSS et compteurs de frames changent d'une version à l'autre — c'est
+déjà arrivé entre la 1.132 et la 1.133 — et la fonctionnalité peut disparaître.
+Voir [Ça cassera à la prochaine mise à jour](#ça-cassera-à-la-prochaine-mise-à-jour-de-vs-code).
 
 ## Contribuer
 
 Les skins sont bienvenus. Un skin = un dossier sous `skins/` avec un
-`skin.json`, les 48 PNG et le `pet.css` régénérés par `generator/petgen.py`, et
+`skin.json`, les 82 PNG et le `pet.css` régénérés par `generator/petgen.py`, et
 des previews. La CI refusera la PR si la régénération produit un diff, si le
 `skin.json` ne valide pas contre le schéma, ou si un compteur de frames est
 faux. Ouvre une PR avec une capture.

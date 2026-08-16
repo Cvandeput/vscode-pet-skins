@@ -288,6 +288,20 @@ class Skin:
                 ymap[y] = y + shift
         return ymap
 
+    def squeeze_shift(self, squeeze):
+        """Déplacement vertical subi par la rangée des orbites sous `squeeze`.
+
+        `draw_base` tasse le corps ; sans ce décalage, les yeux resteraient à
+        leur place pendant que le visage descend, et sortiraient du corps.
+        """
+        if squeeze <= 0:
+            return 0
+        ymap = self._squeeze_map(squeeze)
+        for y in range(self.eye_y, self.size):
+            if ymap.get(y) is not None:
+                return ymap[y] - self.eye_y
+        return 0
+
     @staticmethod
     def _dissolve(x, y, depth, wave):
         """Trouage déterministe : plus on descend, plus le corps se dissipe."""
@@ -385,8 +399,13 @@ class Skin:
         self.hline(g, ex + inset, ex + self.eye_w - 1 - inset, y,
                    color or self.c_core)
 
-    def eyes(self, g, oy, mode='open', dx=0, dy=0, squash=False):
-        """mode : open | closed | dim | hearts | narrow | none"""
+    def eyes(self, g, oy, mode='open', dx=0, dy=0, squash=False, squeeze=0):
+        """mode : open | closed | dim | hearts | narrow | none
+
+        `squeeze` doit reprendre la valeur passée à `draw_base` : les orbites
+        suivent alors le tassement du corps au lieu de rester en l'air.
+        """
+        oy += self.squeeze_shift(squeeze)
         for ex in self.eye_x:
             if mode == 'none':
                 # sprite « tracking » : orbite creuse, VS Code pose la pupille
@@ -490,7 +509,7 @@ def bi_float(sk, n, p, tracking):
         g = sk.blank()
         oy = offset + int(round(amp * math.sin(2 * math.pi * i / cycle)))
         sk.draw_base(g, oy, wave=_wave_at(wave, i, n), squeeze=squeeze)
-        sk.eyes(g, oy, mode=mode,
+        sk.eyes(g, oy, mode=mode, squeeze=squeeze,
                 squash=bool(blink) and blink[0] <= i <= blink[1])
         if sparks and sk.c_spark:
             k = i % max(2, int(sparks))
@@ -590,7 +609,7 @@ def bi_sleep(sk, n, p, tracking):
         g = sk.blank()
         sk.draw_base(g, settle[i], squeeze=squeeze[i], screen_off=screen_off,
                      wave=_wave_at(wave, i, n))
-        sk.eyes(g, settle[i], mode=p.get('eyes', 'closed'))
+        sk.eyes(g, settle[i], mode=p.get('eyes', 'closed'), squeeze=squeeze[i])
         out.append(g)
     return out
 
@@ -636,7 +655,8 @@ def bi_waking(sk, n, p, tracking):
         g = sk.blank()
         sk.draw_base(g, settle[i], squeeze=squeeze[i],
                      wave=_wave_at(wave, i, n))
-        sk.eyes(g, settle[i], mode='none' if tracking else eye_seq[i])
+        sk.eyes(g, settle[i], mode='none' if tracking else eye_seq[i],
+                squeeze=squeeze[i])
         out.append(g)
     return out
 

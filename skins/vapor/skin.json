@@ -61,11 +61,21 @@
     "cool":               { "builtin": "cool", "params": { "drop": 4 } },
     "sleep":              { "builtin": "sleep", "params": { "settle": [1, 1, 2, 2, 3, 3, 4, 4], "squeeze": [0, 1, 2, 2, 3, 4, 4, 5], "wave": { "from": 14, "amp": 1, "period": 9, "fade": true, "cycle": 8 } } },
     "waking":             { "builtin": "waking", "params": { "mode": "rise", "settle": [4, 4, 3, 3, 2, 2, 1, 0], "squeeze": [5, 4, 4, 3, 2, 2, 1, 0], "eyeSeq": ["closed", "closed", "closed", "dim", "dim", "open", "open", "open"] } },
-    "typing":             { "builtin": "typing", "params": { "cursorBlinks": 2, "cursorX": 9, "cursorY": 21, "cursorWidth": 5 } },
+    "typing":             { "builtin": "typing", "params": { "cursorBlinks": 1, "cursorX": 9, "cursorY": 21, "cursorWidth": 5, "prop": "screen" } },
     "love":               { "builtin": "love", "params": { "eyes": "closed", "heartX": [3, 20], "heartY": 16, "riseFrom": 0 } },
     "speech":             { "builtin": "speech" },
     "yapping":            { "builtin": "yapping", "params": { "widths": [2, 4, 6, 4, 2], "eyes": "narrow" } },
-    "search":             { "builtin": "search", "params": { "depth": 18, "gaze": 1 } }
+    "search":             { "builtin": "search", "params": { "depth": 18, "gaze": 1 } },
+
+    "falling":            { "builtin": "falling", "params": { "lean": [0, 2, 3, 4], "drop": [1, 2, 3, 4] } },
+    "jump":               { "builtin": "jump", "params": { "offsets": [1, -1, -3, -3, -1, 1], "squeeze": [2, 1, 0, 0, 0, 1], "shadow": false } },
+    "press-button":       { "builtin": "press-button", "params": { "reach": [0, 0.35, 0.7, 1, 1, 1], "pressFrom": 4 } },
+    "respawn":            { "builtin": "respawn", "params": { "materialize": [3, 6, 9, 12, 15, 16] } },
+    "revive-sign":        { "builtin": "revive-sign", "params": { "eyes": "dim", "signHalf": 6, "propY1": 7 } },
+    "sing":               { "builtin": "sing", "params": { "widths": [3, 6, 4, 7], "bob": [0, -1, 0, -1], "eyes": "narrow", "propY0": 15 } },
+    "speechless":         { "builtin": "speechless", "params": { "dots": [0, 1, 2, 3, 3], "dotsX": 15, "dotsY": 0 } },
+    "splat":              { "builtin": "splat", "params": { "squeeze": [3, 6, 9, 11] } },
+    "worry":              { "builtin": "worry", "params": { "shake": [-1, 1] } }
   },
 
   "base": [

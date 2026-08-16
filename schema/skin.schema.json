@@ -4,13 +4,25 @@
   "title": "vscode-pet-skins — définition d'un skin",
   "description": "Format du fichier skins/<id>/skin.json, lu par generator/petgen.py. Version 1.",
   "type": "object",
-  "required": ["format", "id", "name", "author", "license", "verifiedOn",
-               "grid", "scale", "palette", "roles", "anchors", "base"],
+  "required": [
+    "format",
+    "id",
+    "name",
+    "author",
+    "license",
+    "verifiedOn",
+    "grid",
+    "scale",
+    "palette",
+    "roles",
+    "anchors",
+    "base"
+  ],
   "additionalProperties": false,
-
   "properties": {
-    "$schema": { "type": "string" },
-
+    "$schema": {
+      "type": "string"
+    },
     "format": {
       "const": 1,
       "description": "Version du format. Seule la 1 existe."
@@ -20,83 +32,156 @@
       "pattern": "^[a-z0-9][a-z0-9-]*$",
       "description": "Identifiant, égal au nom du dossier sous skins/."
     },
-    "name": { "type": "string", "minLength": 1 },
-    "description": { "type": "string" },
-    "author": { "type": "string", "minLength": 1 },
-    "license": { "type": "string", "minLength": 1 },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1
+    },
+    "license": {
+      "type": "string",
+      "minLength": 1
+    },
     "verifiedOn": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+      "items": {
+        "type": "string",
+        "pattern": "^\\d+\\.\\d+\\.\\d+$"
+      },
       "description": "Versions de VS Code sur lesquelles le skin a été validé. Install-PetSkin.ps1 avertit si la version installée n'y figure pas."
     },
-
-    "grid": { "type": "integer", "minimum": 1 },
-    "scale": { "type": "integer", "minimum": 1 },
-
+    "grid": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "scale": {
+      "type": "integer",
+      "minimum": 1
+    },
     "speechBubble": {
       "type": "boolean",
       "default": true,
       "description": "false rend les 6 frames de l'état speech transparentes : VS Code n'affiche alors aucune bulle."
     },
-
     "palette": {
       "type": "object",
       "minProperties": 1,
-      "propertyNames": { "pattern": "^[A-Za-z0-9]$" },
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9]$"
+      },
       "additionalProperties": {
         "type": "string",
         "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
       },
       "description": "Un caractère de la grille -> une couleur. Le point '.' est réservé au transparent."
     },
-
     "roles": {
       "type": "object",
-      "required": ["eyeCore"],
-      "additionalProperties": { "type": "string", "pattern": "^[A-Za-z0-9]$" },
+      "required": [
+        "eyeCore"
+      ],
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9]$"
+      },
       "description": "Nom de rôle -> lettre de palette. Un rôle absent désactive l'effet qui s'en sert, il ne casse rien.",
       "properties": {
-        "screen": { "type": "string" },
-        "screenOff": { "type": "string" },
-        "screenFlicker": { "type": "string" },
-        "socket": { "type": "string" },
-        "socketRim": { "type": "string" },
-        "eyeCore": { "type": "string" },
-        "eyeLight": { "type": "string" },
-        "eyeShadow": { "type": "string" },
-        "halo": { "type": "string" },
-        "haloStrong": { "type": "string" },
-        "spark": { "type": "string" },
-        "heart": { "type": "string" },
-        "shadow": { "type": "string" },
-        "outline": { "type": "string" },
-        "bubbleFill": { "type": "string" },
-        "bubbleShine": { "type": "string" },
-        "pageFront": { "type": "string" },
-        "pageBack": { "type": "string" },
-        "ink": { "type": "string" }
+        "screen": {
+          "type": "string"
+        },
+        "screenOff": {
+          "type": "string"
+        },
+        "screenFlicker": {
+          "type": "string"
+        },
+        "socket": {
+          "type": "string"
+        },
+        "socketRim": {
+          "type": "string"
+        },
+        "eyeCore": {
+          "type": "string"
+        },
+        "eyeLight": {
+          "type": "string"
+        },
+        "eyeShadow": {
+          "type": "string"
+        },
+        "halo": {
+          "type": "string"
+        },
+        "haloStrong": {
+          "type": "string"
+        },
+        "spark": {
+          "type": "string"
+        },
+        "heart": {
+          "type": "string"
+        },
+        "shadow": {
+          "type": "string"
+        },
+        "outline": {
+          "type": "string"
+        },
+        "bubbleFill": {
+          "type": "string"
+        },
+        "bubbleShine": {
+          "type": "string"
+        },
+        "pageFront": {
+          "type": "string"
+        },
+        "pageBack": {
+          "type": "string"
+        },
+        "ink": {
+          "type": "string"
+        }
       }
     },
-
     "anchors": {
       "type": "object",
-      "required": ["eyes", "body"],
+      "required": [
+        "eyes",
+        "body"
+      ],
       "additionalProperties": false,
       "properties": {
         "eyes": {
           "type": "object",
-          "required": ["left", "right"],
+          "required": [
+            "left",
+            "right"
+          ],
           "additionalProperties": false,
           "properties": {
-            "left":   { "$ref": "#/$defs/point" },
-            "right":  { "$ref": "#/$defs/point" },
+            "left": {
+              "$ref": "#/$defs/point"
+            },
+            "right": {
+              "$ref": "#/$defs/point"
+            },
             "socket": {
               "$ref": "#/$defs/point",
               "description": "Largeur et hauteur de l'orbite, en cellules. 4x4 contient exactement le débattement de la pupille DOM."
             },
             "style": {
-              "enum": ["pupil", "slit"],
+              "enum": [
+                "pupil",
+                "slit"
+              ],
               "default": "pupil",
               "description": "pupil : pupille carrée. slit : fente lumineuse, pour les yeux étroits."
             }
@@ -106,77 +191,194 @@
           "$ref": "#/$defs/box",
           "description": "Zone de dalle : scanlines, barres de progression, curseur. Absent = dérivé du bandeau bas du corps."
         },
-        "body":   { "$ref": "#/$defs/box" },
-        "mouth":  { "$ref": "#/$defs/point" },
-        "bubble": { "$ref": "#/$defs/box" },
+        "body": {
+          "$ref": "#/$defs/box"
+        },
+        "mouth": {
+          "$ref": "#/$defs/point"
+        },
+        "bubble": {
+          "$ref": "#/$defs/box"
+        },
         "feet": {
           "type": "array",
-          "items": { "$ref": "#/$defs/box" },
+          "items": {
+            "$ref": "#/$defs/box"
+          },
           "description": "Zones qui se lèvent. Tableau vide pour un personnage flottant."
         }
       }
     },
-
     "animations": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Un slot non renseigné retombe sur sa primitive par défaut.",
+      "description": "Les 21 états du format 1.133 (cf. schema/formats/1.133.json). Un slot non renseigné retombe sur sa primitive par défaut.",
       "properties": {
-        "idle":               { "$ref": "#/$defs/animation" },
-        "idle-tracking":      { "$ref": "#/$defs/animation" },
-        "rendering-tracking": { "$ref": "#/$defs/animation" },
-        "clapping-tracking":  { "$ref": "#/$defs/animation" },
-        "cool":               { "$ref": "#/$defs/animation" },
-        "sleep":              { "$ref": "#/$defs/animation" },
-        "waking":             { "$ref": "#/$defs/animation" },
-        "typing":             { "$ref": "#/$defs/animation" },
-        "love":               { "$ref": "#/$defs/animation" },
-        "speech":             { "$ref": "#/$defs/animation" },
-        "yapping":            { "$ref": "#/$defs/animation" },
-        "search":             { "$ref": "#/$defs/animation" }
+        "clapping-tracking": {
+          "$ref": "#/$defs/animation"
+        },
+        "cool": {
+          "$ref": "#/$defs/animation"
+        },
+        "falling": {
+          "$ref": "#/$defs/animation"
+        },
+        "idle": {
+          "$ref": "#/$defs/animation"
+        },
+        "idle-tracking": {
+          "$ref": "#/$defs/animation"
+        },
+        "jump": {
+          "$ref": "#/$defs/animation"
+        },
+        "love": {
+          "$ref": "#/$defs/animation"
+        },
+        "press-button": {
+          "$ref": "#/$defs/animation"
+        },
+        "rendering-tracking": {
+          "$ref": "#/$defs/animation"
+        },
+        "respawn": {
+          "$ref": "#/$defs/animation"
+        },
+        "revive-sign": {
+          "$ref": "#/$defs/animation"
+        },
+        "search": {
+          "$ref": "#/$defs/animation"
+        },
+        "sing": {
+          "$ref": "#/$defs/animation"
+        },
+        "sleep": {
+          "$ref": "#/$defs/animation"
+        },
+        "speech": {
+          "$ref": "#/$defs/animation"
+        },
+        "speechless": {
+          "$ref": "#/$defs/animation"
+        },
+        "splat": {
+          "$ref": "#/$defs/animation"
+        },
+        "typing": {
+          "$ref": "#/$defs/animation"
+        },
+        "waking": {
+          "$ref": "#/$defs/animation"
+        },
+        "worry": {
+          "$ref": "#/$defs/animation"
+        },
+        "yapping": {
+          "$ref": "#/$defs/animation"
+        }
       }
     },
-
     "base": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "La grille de base, une chaîne par ligne, un caractère de palette par cellule, '.' pour transparent."
     }
   },
-
   "allOf": [
     {
       "description": "grid x scale doit valoir 96 : c'est la taille d'une frame imposée par VS Code.",
       "oneOf": [
-        { "properties": { "grid": { "const": 12 }, "scale": { "const": 8 } } },
-        { "properties": { "grid": { "const": 16 }, "scale": { "const": 6 } } },
-        { "properties": { "grid": { "const": 24 }, "scale": { "const": 4 } } },
-        { "properties": { "grid": { "const": 32 }, "scale": { "const": 3 } } },
-        { "properties": { "grid": { "const": 48 }, "scale": { "const": 2 } } },
-        { "properties": { "grid": { "const": 96 }, "scale": { "const": 1 } } }
+        {
+          "properties": {
+            "grid": {
+              "const": 12
+            },
+            "scale": {
+              "const": 8
+            }
+          }
+        },
+        {
+          "properties": {
+            "grid": {
+              "const": 16
+            },
+            "scale": {
+              "const": 6
+            }
+          }
+        },
+        {
+          "properties": {
+            "grid": {
+              "const": 24
+            },
+            "scale": {
+              "const": 4
+            }
+          }
+        },
+        {
+          "properties": {
+            "grid": {
+              "const": 32
+            },
+            "scale": {
+              "const": 3
+            }
+          }
+        },
+        {
+          "properties": {
+            "grid": {
+              "const": 48
+            },
+            "scale": {
+              "const": 2
+            }
+          }
+        },
+        {
+          "properties": {
+            "grid": {
+              "const": 96
+            },
+            "scale": {
+              "const": 1
+            }
+          }
+        }
       ]
     }
   ],
-
   "$defs": {
     "point": {
       "type": "array",
       "minItems": 2,
       "maxItems": 2,
-      "items": { "type": "integer" }
+      "items": {
+        "type": "integer"
+      }
     },
     "box": {
       "type": "array",
       "minItems": 4,
       "maxItems": 4,
-      "items": { "type": "integer" },
+      "items": {
+        "type": "integer"
+      },
       "description": "[x0, y0, x1, y1], bornes incluses."
     },
     "frameGrid": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Une frame dessinée à la main, même format que `base`."
     },
     "animation": {
@@ -188,20 +390,49 @@
         },
         {
           "type": "array",
-          "items": { "$ref": "#/$defs/frameGrid" },
+          "items": {
+            "$ref": "#/$defs/frameGrid"
+          },
           "description": "Raccourci : la liste des frames."
         },
         {
           "type": "object",
-          "required": ["builtin"],
+          "required": [
+            "builtin"
+          ],
           "additionalProperties": false,
           "properties": {
             "builtin": {
-              "enum": ["still", "blank", "idle", "float", "rendering",
-                       "clapping", "cool", "sleep", "waking", "typing",
-                       "love", "yapping", "search", "speech", "pages"]
+              "enum": [
+                "blank",
+                "clapping",
+                "cool",
+                "falling",
+                "float",
+                "idle",
+                "jump",
+                "love",
+                "pages",
+                "press-button",
+                "rendering",
+                "respawn",
+                "revive-sign",
+                "search",
+                "sing",
+                "sleep",
+                "speech",
+                "speechless",
+                "splat",
+                "still",
+                "typing",
+                "waking",
+                "worry",
+                "yapping"
+              ]
             },
-            "params": { "type": "object" },
+            "params": {
+              "type": "object"
+            },
             "tracking": {
               "type": "boolean",
               "description": "Force ou retire les orbites creuses. Par défaut, hérité du slot."
@@ -210,13 +441,17 @@
         },
         {
           "type": "object",
-          "required": ["frames"],
+          "required": [
+            "frames"
+          ],
           "additionalProperties": false,
           "properties": {
             "frames": {
               "type": "array",
               "minItems": 1,
-              "items": { "$ref": "#/$defs/frameGrid" }
+              "items": {
+                "$ref": "#/$defs/frameGrid"
+              }
             }
           }
         }

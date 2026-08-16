@@ -9,7 +9,7 @@ Aperçus pour le README : bannière animée et planche des états.
 Écrit dans `skins/<id>/preview/` :
 
     banner.gif      le personnage traverse la bannière et joue ses animations
-    states.png      une frame représentative de chacun des 12 états
+    states.png      une frame représentative de chacun des 21 états
     idle.gif  idle_tracking.gif  love.gif  search.gif
 
 Ces fichiers sont purement décoratifs : contrairement aux sprites et au CSS,
@@ -64,8 +64,12 @@ def to_gif(images, path, duration=FRAME_MS, colors=32):
 
 
 def anims(sk):
-    """{clé: [grille, ...]} pour les 12 états."""
-    return {key: frames for key, (frames, _) in P.build_all(sk).items()}
+    """{clé: [image PIL, ...]} pour tous les états du format.
+
+    Les images sont rendues par `build_all` pendant que le canvas de l'état est
+    réglé : depuis 1.133 elles n'ont plus toutes la même taille.
+    """
+    return {key: e['images'] for key, e in P.build_all(sk).items()}
 
 
 # ------------------------------------------------------------------- marche
@@ -99,6 +103,17 @@ def anim_walk(sk, cycles=1):
 
 
 # ----------------------------------------------------------------- bannière
+def crop_pet(img, spr):
+    """Ne garde que la zone du personnage d'une frame large ou haute.
+
+    Depuis 1.133 les frames n'ont plus toutes la même taille ; le pet reste
+    ancré en bas à gauche, donc la bannière recadre sur ce coin.
+    """
+    if img.size == (spr, spr):
+        return img
+    return img.crop((0, img.height - spr, min(spr, img.width), img.height))
+
+
 def build_banner(sk):
     spr = sk.frame * ZOOM
     height = spr + 16
@@ -106,8 +121,9 @@ def build_banner(sk):
     a = anims(sk)
 
     def rendered(key):
-        return [big(sk.render(g)) for g in a[key]]
+        return [crop_pet(big(im), spr) for im in a[key]]
 
+    sk.reset_canvas()
     walk = [big(sk.render(g)) for g in anim_walk(sk)]
     idle = rendered('idle')
     speech = rendered('speech')
@@ -115,8 +131,8 @@ def build_banner(sk):
     show = [
         take(idle, 18), rendered('typing'), take(rendered('rendering-tracking'), 20),
         rendered('clapping-tracking'), rendered('love'), rendered('cool'),
-        rendered('yapping'), rendered('search'), rendered('sleep'),
-        rendered('waking'),
+        rendered('yapping'), rendered('jump'), rendered('sing'),
+        rendered('search'), rendered('sleep'), rendered('waking'),
     ]
 
     seq = []                       # (sprite, x, flip, bulle|None)
@@ -164,28 +180,57 @@ def build_banner(sk):
 
 
 # ------------------------------------------------------------ planche states
-STATE_ORDER = ['idle', 'idle-tracking', 'typing', 'rendering-tracking',
-               'clapping-tracking', 'cool', 'love', 'yapping', 'search',
-               'sleep', 'waking', 'speech']
+# Les 21 états de 1.133. `press-button`, `typing` et `sing` ont une frame plus
+# large que les autres, `sing` est aussi plus haute : la planche ne peut plus
+# être une grille de cellules carrées.
+STATE_ORDER = ['idle', 'idle-tracking', 'rendering-tracking',
+               'clapping-tracking', 'cool', 'love',
+               'yapping', 'search', 'sleep', 'waking', 'speech', 'worry',
+               'falling', 'jump', 'splat', 'speechless', 'respawn',
+               'revive-sign', 'typing', 'press-button', 'sing']
 
 # frame représentative de chaque état : la plus lisible, pas la frame 0
-STATE_FRAME = {'idle': 0, 'idle-tracking': 0, 'typing': 1,
+STATE_FRAME = {'idle': 0, 'idle-tracking': 0, 'typing': 0,
                'rendering-tracking': 30, 'clapping-tracking': 3, 'cool': 8,
                'love': 5, 'yapping': 2, 'search': 3, 'sleep': 4, 'waking': 7,
-               'speech': 4}
+               'speech': 4, 'falling': 3, 'jump': 2, 'press-button': 5,
+               'respawn': 4, 'revive-sign': 0, 'sing': 1, 'speechless': 3,
+               'splat': 3, 'worry': 0}
 
 
-def build_states(sk, cols=6, zoom=2, pad=8):
+def build_states(sk, zoom=2, pad=8, max_width=1400):
+    """Mise en page à la volée : les frames n'ont plus toutes la même taille."""
     a = anims(sk)
-    cell = sk.frame * zoom + pad * 2
-    rows = (len(STATE_ORDER) + cols - 1) // cols
-    sheet = Image.new('RGBA', (cell * cols, cell * rows), (0, 0, 0, 0))
-    for i, key in enumerate(STATE_ORDER):
-        frames = a[key]
+    picked = []
+    for key in STATE_ORDER:
+        frames = a.get(key)
+        if not frames:
+            continue
         idx = min(STATE_FRAME.get(key, 0), len(frames) - 1)
-        img = big(sk.render(frames[idx]), zoom)
-        sheet.alpha_composite(img, ((i % cols) * cell + pad,
-                                    (i // cols) * cell + pad))
+        picked.append(big(frames[idx], zoom))
+
+    rows, cur, cur_w = [], [], 0
+    for img in picked:
+        w = img.width + pad * 2
+        if cur and cur_w + w > max_width:
+            rows.append(cur)
+            cur, cur_w = [], 0
+        cur.append(img)
+        cur_w += w
+    if cur:
+        rows.append(cur)
+
+    widths = [sum(i.width + pad * 2 for i in r) for r in rows]
+    heights = [max(i.height for i in r) + pad * 2 for r in rows]
+    sheet = Image.new('RGBA', (max(widths), sum(heights)), (0, 0, 0, 0))
+    y = 0
+    for r, h in zip(rows, heights):
+        x = 0
+        for img in r:
+            # aligné en bas : le pet garde le même sol d'une case à l'autre
+            sheet.alpha_composite(img, (x + pad, y + h - pad - img.height))
+            x += img.width + pad * 2
+        y += h
     return sheet
 
 
@@ -201,7 +246,7 @@ def write_previews(sk):
     loops = {'idle': ('idle', 40), 'idle_tracking': ('idle-tracking', 40),
              'love': ('love', 200), 'search': ('search', 500)}
     for name, (key, ms) in loops.items():
-        frames = [big(sk.render(g)) for g in a[key]]
+        frames = [big(im) for im in a[key]]
         to_gif(frames, os.path.join(outdir, f'{name}.gif'), duration=ms)
 
     print(f"skin '{sk.name}' : banner.gif, states.png et 4 gifs d'etat")

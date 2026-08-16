@@ -10,10 +10,16 @@ personnage. C'est un interpréteur : tout vient de `skins/<id>/skin.json`.
     generator/petgen.py nixie vapor     # seulement ces skins
     generator/petgen.py chemin/skin.json
     generator/petgen.py --out DIR nixie # écrit ailleurs, sans toucher au dépôt
+    generator/petgen.py --format 1.133  # autre descripteur de format
+
+La liste des états, le nombre de frames et la géométrie de chaque frame ne
+sont PAS codés ici : ils viennent de `schema/formats/<id>.json`, relevé sur une
+installation réelle par `tools/probe_format.py`. En 1.133 : 21 états, 82
+fichiers, et la frame n'est plus carrée sur les états à accessoire.
 
 Pour chaque skin, la sortie est reproductible au bit près :
 
-    skins/<id>/sprites/buddy-*.png      les 48 fichiers attendus par VS Code
+    skins/<id>/sprites/buddy-*.png      les 82 fichiers attendus par VS Code
     skins/<id>/css/pet.css              dérivé de palette + anchors.eyes
 
 La CI regénère et vérifie que `git diff` est vide (cf. .github/workflows/ci.yml).
@@ -45,30 +51,65 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 SKINS_DIR = os.path.join(REPO, 'skins')
+FORMATS_DIR = os.path.join(REPO, 'schema', 'formats')
+DEFAULT_FORMAT = '1.133'
 
-# --------------------------------------------------------------------- slots
-# (clé d'animation, gabarit de nom, nombre de frames, sprite « tracking »)
+
+class SkinError(Exception):
+    """Erreur de définition d'un skin, remontée avec un message lisible."""
+
+
+# -------------------------------------------------------------------- format
+# Le descripteur `schema/formats/<id>.json` est la source de vérité : liste des
+# états, nombre de frames (imposé par des tables de durées codées en dur dans
+# le JavaScript de VS Code), et géométrie de chaque frame.
 #
-# Le nombre de frames est IMPOSÉ par des tables de durées codées en dur dans le
-# JavaScript de VS Code. Toute divergence désynchronise l'animation.
-SLOTS = [
-    ('idle',               'idle-{v}-96',               50, False),
-    ('idle-tracking',      'idle-{v}-tracking-96',      50, True),
-    ('rendering-tracking', 'rendering-{v}-tracking-96', 50, True),
-    ('clapping-tracking',  'clapping-{v}-tracking-96',  13, True),
-    ('cool',               'cool-{v}-96',                9, False),
-    ('sleep',              'sleep-{v}-96',               8, False),
-    ('waking',             'waking-{v}-96',              8, False),
-    ('typing',             'typing-{v}-96',              8, False),
-    ('love',               'love-{v}-96',                6, False),
-    ('speech',             'speech-{v}-96',              6, False),
-    ('yapping',            'yapping-{v}-96',             5, False),
-    ('search',             'search-{v}-96',              4, False),
-]
+# Nom de fichier : buddy-<state>-<variant>[-tracking]-<suffix>[.spritesheet].png
+# Le suffixe est la HAUTEUR de la frame, pas sa largeur.
+def _state_entry(state, path):
+    for field in ('key', 'state', 'suffix', 'frameWidth', 'frameHeight', 'frames'):
+        if field not in state:
+            raise SkinError(f"{path} : champ `{field}` manquant sur un etat")
+    tracking = bool(state.get('tracking'))
+    name = (f"{state['state']}-{{v}}"
+            + ('-tracking' if tracking else '')
+            + f"-{int(state['suffix'])}")
+    return {
+        'key': str(state['key']),
+        'state': str(state['state']),
+        'tracking': tracking,
+        'template': name,
+        'frame_w': int(state['frameWidth']),
+        'frame_h': int(state['frameHeight']),
+        'frames': int(state['frames']),
+        'spritesheet': bool(state.get('spritesheet', True)),
+    }
 
-FRAME_COUNTS = {key: n for key, _, n, _ in SLOTS}
 
-# Animation par défaut de chaque slot, quand `skin.json` n'en dit rien.
+def load_format(spec=None):
+    """Charge un descripteur : un id (`1.133`) ou un chemin de fichier."""
+    spec = spec or DEFAULT_FORMAT
+    path = spec if os.path.isfile(spec) else os.path.join(
+        FORMATS_DIR, f'{spec}.json')
+    if not os.path.isfile(path):
+        raise SkinError(
+            f"format introuvable : {spec} (ni un fichier, ni un descripteur de "
+            f"{os.path.relpath(FORMATS_DIR, REPO)})")
+    with open(path, encoding='utf-8') as fh:
+        data = json.load(fh)
+    states = data.get('states') or []
+    if not states:
+        raise SkinError(f"{path} : aucun etat dans le descripteur")
+    entries = [_state_entry(s, path) for s in states]
+    seen = set()
+    for e in entries:
+        if e['key'] in seen:
+            raise SkinError(f"{path} : etat '{e['key']}' en double")
+        seen.add(e['key'])
+    return {'id': data.get('id') or str(spec), 'path': path, 'states': entries}
+
+
+# Animation par défaut de chaque état, quand `skin.json` n'en dit rien.
 DEFAULT_ANIMATIONS = {
     'idle':               {'builtin': 'idle'},
     'idle-tracking':      {'builtin': 'idle'},
@@ -77,16 +118,21 @@ DEFAULT_ANIMATIONS = {
     'cool':               {'builtin': 'cool'},
     'sleep':              {'builtin': 'sleep'},
     'waking':             {'builtin': 'waking'},
-    'typing':             {'builtin': 'typing'},
+    'typing':             {'builtin': 'typing', 'params': {'prop': 'screen'}},
     'love':               {'builtin': 'love'},
     'speech':             {'builtin': 'speech'},
     'yapping':            {'builtin': 'yapping'},
     'search':             {'builtin': 'search'},
+    'falling':            {'builtin': 'falling'},
+    'jump':               {'builtin': 'jump'},
+    'press-button':       {'builtin': 'press-button'},
+    'respawn':            {'builtin': 'respawn'},
+    'revive-sign':        {'builtin': 'revive-sign'},
+    'sing':               {'builtin': 'sing'},
+    'speechless':         {'builtin': 'speechless'},
+    'splat':              {'builtin': 'splat'},
+    'worry':              {'builtin': 'worry'},
 }
-
-
-class SkinError(Exception):
-    """Erreur de définition d'un skin, remontée avec un message lisible."""
 
 
 # ------------------------------------------------------------------ outillage
@@ -98,11 +144,12 @@ def _hexa(value):
     return rgba if len(rgba) == 4 else rgba + (255,)
 
 
-def _grid_from_rows(rows, size):
-    """Normalise une liste de chaînes en grille size x size."""
-    out = [list(str(r).ljust(size, '.')[:size]) for r in rows[:size]]
-    while len(out) < size:
-        out.append(['.'] * size)
+def _grid_from_rows(rows, width, height=None):
+    """Normalise une liste de chaînes en grille height x width."""
+    height = width if height is None else height
+    out = [list(str(r).ljust(width, '.')[:width]) for r in rows[:height]]
+    while len(out) < height:
+        out.append(['.'] * width)
     return out
 
 
@@ -133,7 +180,7 @@ def wave_at(params, i, n):
 class Skin:
     """Un skin chargé : palette, grille de base, repères, animations."""
 
-    def __init__(self, data, source=None):
+    def __init__(self, data, source=None, fmt=None):
         self.data = data
         self.source = source
         self.id = data.get('id') or (
@@ -142,11 +189,17 @@ class Skin:
 
         self.size = int(data.get('grid', 24))
         self.scale = int(data.get('scale', 4))
-        self.frame = self.size * self.scale
-        if self.frame != 96:
-            raise SkinError(
-                f"grid x scale doit valoir 96 (ici {self.size} x {self.scale} "
-                f"= {self.frame})")
+        if self.size < 1 or self.scale < 1:
+            raise SkinError('`grid` et `scale` doivent etre >= 1')
+
+        # Ce n'est plus le skin qui impose la taille de frame, c'est le format.
+        # On vérifie seulement que la grille du skin sait la pavér.
+        self.format = fmt or load_format()
+        self.check_format()
+
+        # Canvas courant : le compilateur d'animation le règle par état, car la
+        # frame n'est plus carrée (`typing` 168x96, `sing` 164x124...).
+        self.reset_canvas()
 
         if not data.get('base'):
             raise SkinError("`base` manquant")
@@ -207,6 +260,41 @@ class Skin:
         if not self.c_core:
             raise SkinError("le role `eyeCore` est obligatoire")
 
+    # ------------------------------------------------------------- géométrie
+    def check_format(self):
+        """Chaque frame du format doit être pavable par la grille du skin."""
+        self.frame = self.size * self.scale
+        for e in self.format['states']:
+            for label, px in (('largeur', e['frame_w']), ('hauteur', e['frame_h'])):
+                if px % self.scale:
+                    raise SkinError(
+                        f"etat '{e['key']}' : {label} de frame {px} px non "
+                        f"divisible par scale={self.scale} "
+                        f"(format {self.format['id']})")
+            cols, rows = e['frame_w'] // self.scale, e['frame_h'] // self.scale
+            if cols < self.size or rows < self.size:
+                raise SkinError(
+                    f"etat '{e['key']}' : frame {cols}x{rows} cellules plus "
+                    f"petite que la grille du personnage {self.size}x{self.size} "
+                    f"(baisse `grid`, ou augmente `scale`)")
+
+    def set_canvas(self, cols, rows):
+        """Règle la géométrie du canvas courant, en cellules."""
+        self.cols, self.rows = int(cols), int(rows)
+        # Le personnage garde sa grille logique size x size, ancrée en bas à
+        # gauche. `put()` applique le décalage, donc toutes les primitives en
+        # héritent sans être retouchées.
+        self.head_room = self.rows - self.size     # marge ajoutée en haut
+        self.prop_x0 = self.size                   # début de la zone accessoire
+        return self
+
+    def reset_canvas(self):
+        return self.set_canvas(self.size, self.size)
+
+    def canvas_for(self, entry):
+        return self.set_canvas(entry['frame_w'] // self.scale,
+                               entry['frame_h'] // self.scale)
+
     # ---------------------------------------------------------------- rôles
     def role(self, *names):
         """Premier rôle défini ET présent dans la palette, sinon None."""
@@ -239,11 +327,28 @@ class Skin:
 
     # ------------------------------------------------------------- primitives
     def blank(self):
-        return [['.'] * self.size for _ in range(self.size)]
+        return [['.'] * self.cols for _ in range(self.rows)]
 
     def put(self, g, x, y, c):
-        if c and 0 <= x < self.size and 0 <= y < self.size:
-            g[y][x] = c
+        """Écrit en « espace personnage » : (0, 0) = coin haut-gauche du pet.
+
+        Le pet est ancré en bas à gauche du canvas. Un `y` négatif vise donc la
+        marge du haut (cas de `sing`), un `x >= prop_x0` la zone accessoire.
+        """
+        if not c:
+            return
+        ty = int(y) + self.head_room
+        x = int(x)
+        if 0 <= x < self.cols and 0 <= ty < self.rows:
+            g[ty][x] = c
+
+    def at(self, g, x, y):
+        """Lit une cellule en espace personnage, '.' hors canvas."""
+        ty = int(y) + self.head_room
+        x = int(x)
+        if 0 <= x < self.cols and 0 <= ty < self.rows:
+            return g[ty][x]
+        return '.'
 
     def hline(self, g, x0, x1, y, c):
         for x in range(int(x0), int(x1) + 1):
@@ -258,14 +363,15 @@ class Skin:
             self.hline(g, x0, x1, y, c)
 
     def render(self, g):
-        img = Image.new('RGBA', (self.size, self.size), (0, 0, 0, 0))
+        img = Image.new('RGBA', (self.cols, self.rows), (0, 0, 0, 0))
         px = img.load()
-        for y in range(self.size):
-            for x in range(self.size):
+        for y in range(self.rows):
+            for x in range(self.cols):
                 col = self.palette.get(g[y][x])
                 if col:
                     px[x, y] = col
-        return img.resize((self.frame, self.frame), Image.NEAREST)
+        return img.resize((self.cols * self.scale, self.rows * self.scale),
+                          Image.NEAREST)
 
     # ------------------------------------------------------------ personnage
     def _in_foot(self, x, y):
@@ -314,17 +420,22 @@ class Skin:
         return ((x * 3 + y * 5 + int(wave.get('step', 0)) * 7) % k) == 0
 
     def draw_base(self, g, oy=0, flicker=False, feet=(0, 0), wave=None,
-                  squeeze=0, screen_off=False):
+                  squeeze=0, screen_off=False, ox=0, lean=0.0):
         """Pose la grille de base.
 
         oy         décalage vertical global
+        ox         décalage horizontal global (tremblement, recul)
         feet       levée de chaque zone de `anchors.feet` (ignoré si vide)
         wave       ondulation horizontale du bas du corps, cf. wave_at
         squeeze    tassement vertical, bas ancré
+        lean       inclinaison : le haut du corps part de `lean` cellules,
+                   le bas ne bouge pas (piqué du nez de `falling`)
         flicker    la dalle passe en couleur `screenFlicker`
         screen_off la dalle passe en couleur `screenOff`
         """
         ymap = self._squeeze_map(squeeze)
+        by0, by1 = int(self.body[1]), int(self.body[3])
+        span = max(1, by1 - by0)
         for y in range(self.size):
             ty = ymap[y]
             if ty is None:
@@ -333,11 +444,13 @@ class Skin:
                 c = self.base[y][x]
                 if c == '.':
                     continue
-                dx = 0
+                dx = ox
+                if lean:
+                    dx += int(round(lean * max(0, by1 - y) / span))
                 if wave and y >= int(wave.get('from', self.size)):
                     depth = y - int(wave.get('from', self.size))
                     period = max(1, int(wave.get('period', 6)))
-                    dx = int(round(float(wave.get('amp', 1)) * math.sin(
+                    dx += int(round(float(wave.get('amp', 1)) * math.sin(
                         2 * math.pi * (float(wave.get('phase', 0.0))
                                        + depth / period))))
                     if wave.get('fade') and self._dissolve(x, y, depth, wave):
@@ -349,12 +462,13 @@ class Skin:
                 self.put(g, x + dx, ty + oy + fdy, c)
 
         if flicker and self.screen and self.c_flick and self.c_screen:
+            # Passe par at()/put() : sinon l'écriture rate la cible dès que le
+            # canvas est plus haut que la grille du personnage.
             x0, y0, x1, y1 = self.screen_rect()
             for y in range(y0, y1 + 1):
                 for x in range(x0, x1 + 1):
-                    if 0 <= y + oy < self.size and 0 <= x < self.size:
-                        if g[y + oy][x] == self.c_screen:
-                            g[y + oy][x] = self.c_flick
+                    if self.at(g, x + ox, y + oy) == self.c_screen:
+                        self.put(g, x + ox, y + oy, self.c_flick)
 
     # ------------------------------------------------------------------ yeux
     def socket(self, g, oy, ex, ey=None, squash=False):
@@ -402,14 +516,16 @@ class Skin:
         self.hline(g, ex + inset, ex + self.eye_w - 1 - inset, y,
                    color or self.c_core)
 
-    def eyes(self, g, oy, mode='open', dx=0, dy=0, squash=False, squeeze=0):
+    def eyes(self, g, oy, mode='open', dx=0, dy=0, squash=False, squeeze=0,
+             ox=0):
         """mode : open | closed | dim | hearts | narrow | none
 
         `squeeze` doit reprendre la valeur passée à `draw_base` : les orbites
         suivent alors le tassement du corps au lieu de rester en l'air.
+        `ox` doit reprendre le décalage horizontal (`ox` / `lean`) du corps.
         """
         oy += self.squeeze_shift(squeeze)
-        for ex in self.eye_x:
+        for ex in (e + int(ox) for e in self.eye_x):
             if mode == 'none':
                 # sprite « tracking » : orbite creuse, VS Code pose la pupille
                 self.socket(g, oy, ex, squash=squash)
@@ -670,6 +786,9 @@ def bi_typing(sk, n, p, tracking):
     `cursorBlinks` = nombre de clignotements par cycle d'animation. La valeur
     par défaut est 1 : allumé sur la première moitié du cycle, éteint sur la
     seconde. Au-delà de 2, le clignotement redevient illisible.
+
+    En 1.133 la frame fait 168 px de large : `prop` (par défaut `screen`)
+    remplit la moitié droite, sinon elle resterait vide.
     """
     gaze = _resample(p.get('gaze', [-1, 0, 1, 1, 0, -1, 0, 0]), n)
     blinks = max(1, int(p.get('cursorBlinks', 1)))
@@ -678,6 +797,7 @@ def bi_typing(sk, n, p, tracking):
     cy = int(p.get('cursorY', y1 - 1))
     width = max(1, int(p.get('cursorWidth', 2)))
     mode = _eye_mode(p, tracking)
+    prop = p.get('prop', 'screen')
     out = []
     for i in range(n):
         g = sk.blank()
@@ -685,6 +805,7 @@ def bi_typing(sk, n, p, tracking):
         sk.eyes(g, 0, mode=mode, dx=gaze[i])
         if ((i * 2 * blinks) // n) % 2 == 0:
             sk.hline(g, cx, cx + width - 1, cy, sk.c_core)
+        draw_prop(sk, g, prop, i, n, p)
         out.append(g)
     return out
 
@@ -816,10 +937,12 @@ def bi_pages(sk, n, p, tracking):
     x0, y0, x1, y1 = tuple(p.get('rect') or sk.screen_rect())
     turns = max(1, int(p.get('turns', 1)))
     mode = _eye_mode(p, tracking)
+    prop = p.get('prop')
     out = []
     for i in range(n):
         g = sk.blank()
         sk.draw_base(g, 0)
+        draw_prop(sk, g, prop, i, n, p)
         t = ((i * turns) % n) / n
         px = x1 - t * (x1 - x0)
         bulge = round(2 * math.sin(math.pi * t))
@@ -834,8 +957,439 @@ def bi_pages(sk, n, p, tracking):
     return out
 
 
+# ---------------------------------------------------------------- accessoires
+# Depuis 1.133, trois états ont une frame plus large que le personnage : le pet
+# est dessiné à gauche, et la largeur en trop accueille un accessoire.
+# `Skin.prop_x0` marque le début de cette zone ; sur une frame carrée elle est
+# vide, et les accessoires qui ont besoin de place s'abstiennent plutôt que de
+# déborder sur le pet.
+
+def prop_zone(sk, p, margin=1, need=6):
+    """(x0, x1) utilisables par un accessoire, ou None si la frame est carrée."""
+    x0 = int(p.get('propX0', sk.prop_x0 + margin))
+    x1 = int(p.get('propX1', sk.cols - 1 - margin))
+    if x0 < sk.prop_x0 or x1 - x0 + 1 < need:
+        return None
+    return x0, x1
+
+
+def _prop_colors(sk):
+    """(cadre, dalle, texte) — chaque terme peut être None."""
+    return (sk.c_out or sk.c_socket,
+            sk.c_screen or sk.c_shadow or sk.c_socket,
+            sk.c_spark or sk.c_light or sk.c_core)
+
+
+def _p_screen(sk, g, i, n, p):
+    """Un écran sur pied, avec du texte qui s'écrit, et un clavier."""
+    zone = prop_zone(sk, p, need=10)
+    if not zone:
+        return
+    x0, x1 = zone
+    edge, face, text = _prop_colors(sk)
+    if not (edge or face):
+        return
+    y0 = int(p.get('propY0', 2))
+    y1 = int(p.get('propY1', 14))
+    cx = (x0 + x1) // 2
+    sk.rect(g, x0, y0, x1, y1, edge or face)
+    sk.rect(g, x0 + 1, y0 + 1, x1 - 1, y1 - 1, face or edge)
+
+    # lignes de code : la dernière s'allonge d'une frame à l'autre
+    lengths = [x1 - x0 - 4, x1 - x0 - 7, x1 - x0 - 3, x1 - x0 - 9]
+    for k, length in enumerate(lengths):
+        ly = y0 + 2 + 2 * k
+        if ly > y1 - 2:
+            break
+        if k == len(lengths) - 1:
+            length = max(1, length - 2 + 2 * (i % 2))
+        sk.hline(g, x0 + 2, x0 + 2 + max(1, length), ly, text)
+    # curseur, en phase avec le clignotement du pet
+    cur_y = y0 + 2 + 2 * (len(lengths) - 1)
+    if i % 2 == 0 and cur_y <= y1 - 2:
+        sk.vline(g, x1 - 2, cur_y - 1, cur_y + 1, sk.c_core)
+
+    # pied et socle
+    sk.vline(g, cx, y1 + 1, y1 + 3, edge or face)
+    sk.vline(g, cx + 1, y1 + 1, y1 + 3, edge or face)
+    sk.hline(g, cx - 3, cx + 4, y1 + 4, edge or face)
+
+    # clavier posé au sol
+    ky = sk.size - 3
+    sk.rect(g, x0, ky, x1, ky + 2, edge or face)
+    sk.hline(g, x0, x1, ky, face or edge)
+    for x in range(x0 + 1, x1, 2):
+        sk.put(g, x, ky + 1, text)
+
+
+def _button_geom(sk, p):
+    zone = prop_zone(sk, p, need=9)
+    if not zone:
+        return None
+    x0, x1 = zone
+    return ((x0 + x1) // 2, int(p.get('propY0', 12)),
+            int(p.get('propY1', sk.size - 2)))
+
+
+def _p_button(sk, g, i, n, p, pressed=False):
+    """Un gros bouton sur socle. `pressed` enfonce le champignon de 2 cases."""
+    geom = _button_geom(sk, p)
+    if not geom:
+        return
+    cx, _, base = geom
+    edge, face, text = _prop_colors(sk)
+    cap = sk.c_heart or sk.c_core
+    rim = base - 5
+    sk.rect(g, cx - 5, rim + 1, cx + 5, base, edge or face)
+    sk.rect(g, cx - 4, rim + 2, cx + 4, base - 1, face or edge)
+    sk.hline(g, cx - 6, cx + 6, rim, edge or face)
+    top = rim - 2 if pressed else rim - 5
+    sk.rect(g, cx - 4, top, cx + 4, rim - 1, cap)
+    sk.hline(g, cx - 3, cx + 3, top, sk.c_light or cap)
+    sk.vline(g, cx - 5, top + 1, rim - 1, edge or cap)
+    sk.vline(g, cx + 5, top + 1, rim - 1, edge or cap)
+    if pressed and text:
+        # petit choc a l'impact
+        sk.put(g, cx - 7, top - 2, text)
+        sk.put(g, cx + 7, top - 2, text)
+        sk.put(g, cx - 6, top - 3, text)
+        sk.put(g, cx + 6, top - 3, text)
+    return top
+
+
+def _note(sk, g, x, y, c):
+    """Croche : tête de 3x2, hampe de 5, drapeau. 6x6 cellules."""
+    sk.rect(g, x, y + 4, x + 2, y + 5, c)
+    sk.vline(g, x + 3, y, y + 4, c)
+    sk.hline(g, x + 3, x + 4, y, c)
+    sk.put(g, x + 4, y + 1, c)
+    sk.put(g, x + 5, y + 2, c)
+
+
+def _p_notes(sk, g, i, n, p):
+    """Des notes qui montent dans la marge — `sing` a aussi de la place en haut."""
+    zone = prop_zone(sk, p, need=8)
+    if not zone:
+        return
+    x0, x1 = zone
+    # `spark` est souvent quasi blanc : les notes prennent d'abord un accent
+    # coloré, sinon elles disparaissent sur un thème clair.
+    tones = [c for c in (sk.c_heart, sk.c_halo2, sk.c_spark, sk.c_core) if c]
+    if not tones:
+        return
+    for k in range(3):
+        y = int(p.get('propY0', 14)) - 6 * k - 3 * i
+        if y + 5 < -sk.head_room:
+            continue
+        x = min(x1 - 5, x0 + 4 * k + (i + k) % 2)
+        _note(sk, g, x, y, tones[k % len(tones)])
+
+
+def _p_sign(sk, g, i, n, p):
+    """Une pancarte tenue devant soi : croix de réanimation et manche."""
+    fill = sk.c_page or sk.c_bubble or sk.c_screen or sk.c_shadow
+    edge = sk.c_out or sk.c_socket
+    ink = sk.c_ink or sk.c_out or sk.c_socket
+    mark = sk.c_heart or sk.c_core
+    if not (fill or edge):
+        return
+    zone = prop_zone(sk, p, need=10)
+    if zone:
+        x0, x1 = zone
+        y1 = int(p.get('propY1', sk.eye_y + 2))
+    else:
+        bx0, _, bx1, _ = (int(v) for v in sk.body)
+        cx = (bx0 + bx1) // 2
+        half = int(p.get('signHalf', 6))
+        x0, x1 = cx - half, cx + half
+        y1 = int(p.get('propY1', max(7, sk.eye_y - 2)))
+    y0 = y1 - int(p.get('signHeight', 8)) + 1
+    cx = (x0 + x1) // 2
+
+    sk.rect(g, x0, y0, x1, y1, edge or fill)
+    sk.rect(g, x0 + 1, y0 + 1, x1 - 1, y1 - 1, fill or edge)
+    # croix : lisible même réduite à 48 px. Le bras horizontal est centré sur
+    # le bras vertical (y0+2 .. y1-2), pas sur la planche : sinon on lit un T.
+    mid = (y0 + y1) // 2
+    sk.rect(g, cx - 1, y0 + 1, cx, y1 - 1, mark or ink)
+    sk.rect(g, cx - 3, mid, cx + 3, mid + 1, mark or ink)
+    # manche + mains
+    sk.vline(g, cx - 1, y1 + 1, y1 + 3, edge or ink)
+    sk.vline(g, cx, y1 + 1, y1 + 3, edge or ink)
+    if sk.c_light:
+        sk.put(g, cx - 2, y1 + 2, sk.c_light)
+        sk.put(g, cx + 1, y1 + 2, sk.c_light)
+
+
+PROPS = {
+    'screen': _p_screen,
+    'button': _p_button,
+    'notes': _p_notes,
+    'sign': _p_sign,
+}
+
+
+def draw_prop(sk, g, kind, i, n, p):
+    """Pose l'accessoire `kind` ; inconnu ou absent => rien, sans erreur."""
+    fn = PROPS.get(kind) if kind else None
+    if fn:
+        fn(sk, g, i, n, p)
+
+
+# ------------------------------------------------------ primitives 1.133
+def _lean_at(sk, lean, y):
+    """Décalage horizontal subi par la ligne `y` sous une inclinaison."""
+    by0, by1 = int(sk.body[1]), int(sk.body[3])
+    return int(round(lean * max(0, by1 - y) / max(1, by1 - by0)))
+
+
+def _accent(sk):
+    """Couleur des petits signes : gouttes, points, lignes de vitesse.
+
+    `spark` vaut souvent un quasi-blanc (vapor, codex) qui disparaît sur un
+    thème clair ; `haloStrong` est un accent teinté, lisible sur les deux.
+    """
+    return sk.c_halo2 or sk.c_spark or sk.c_light or sk.c_core
+
+
+def _drop(sk, g, x, y):
+    """Goutte de sueur / larme, cernée pour tenir sur n'importe quel fond."""
+    c = _accent(sk)
+    edge = sk.c_shine or sk.c_light or sk.c_core
+    if not c:
+        return
+    sk.put(g, x, y, edge or c)
+    sk.put(g, x, y + 1, c)
+    sk.put(g, x + 1, y + 1, c)
+    sk.put(g, x, y + 2, c)
+
+
+def bi_falling(sk, n, p, tracking):
+    """Chute : le pet pique du nez, des lignes de vitesse filent au-dessus."""
+    lean = _resample(p.get('lean', [0, 1, 2, 3]), n)
+    drop = _resample(p.get('drop', [0, 1, 1, 2]), n)
+    mode = _eye_mode(p, tracking)
+    # deux teintes en alternance : l'une porte sur fond clair, l'autre sur fond
+    # sombre, et le pet peut se retrouver sur les deux
+    streaks = [c for c in (_accent(sk), sk.c_spark) if c] or [sk.c_core]
+    bx0, by0, bx1, _ = (int(v) for v in sk.body)
+    out = []
+    for i in range(n):
+        g = sk.blank()
+        sk.draw_base(g, drop[i], lean=lean[i])
+        sk.eyes(g, drop[i], mode=mode, ox=_lean_at(sk, lean[i], sk.eye_y), dy=1)
+        # lignes de vitesse : uniquement dans les rangees libres au-dessus
+        free = by0 + drop[i]
+        for k in range(min(4, free)):
+            y = free - 1 - k
+            for x in range(bx0 + (i + k) % 4, bx1 + 1, 4):
+                sk.put(g, x, y, streaks[k % len(streaks)])
+        out.append(g)
+    return out
+
+
+def bi_jump(sk, n, p, tracking):
+    """Accroupi, détente, sommet, maintien, descente, réception."""
+    offsets = _resample(p.get('offsets', [1, -1, -2, -2, -1, 1]), n)
+    squeeze = _resample(p.get('squeeze', [2, 0, 0, 0, 0, 1]), n)
+    lift = _resample(p.get('feet', [0, -1, -2, -2, -1, 0]), n)
+    mode = _eye_mode(p, tracking)
+    bx0, _, bx1, _ = (int(v) for v in sk.body)
+    cx, ground = (bx0 + bx1) // 2, sk.size - 1
+    peak = min(offsets)
+    out = []
+    for i in range(n):
+        g = sk.blank()
+        feet = (lift[i], lift[i]) if sk.feet else (0, 0)
+        sk.draw_base(g, offsets[i], squeeze=squeeze[i], feet=feet)
+        sk.eyes(g, offsets[i], mode=mode, squeeze=squeeze[i],
+                dy=-1 if offsets[i] < 0 else 0)
+        if sk.c_shadow and p.get('shadow', bool(sk.feet)):
+            # l'ombre au sol retrecit avec l'altitude : sans elle, la detente
+            # ne se lit pas sur une planche de frames arretees
+            t = 0.0 if peak >= 0 else max(0.0, min(1.0, offsets[i] / peak))
+            half = max(2, int(round((bx1 - bx0 + 1) / 2 * (1 - 0.5 * t))))
+            sk.hline(g, cx - half, cx + half, ground, sk.c_shadow)
+        out.append(g)
+    return out
+
+
+def bi_press_button(sk, n, p, tracking):
+    """Frame large : un bouton à droite, le pet tend le bras et l'enfonce."""
+    mode = _eye_mode(p, tracking)
+    reach = _resample(p.get('reach', [0.0, 0.35, 0.7, 1.0, 1.0, 1.0]), n)
+    press_from = int(p.get('pressFrom', max(1, n - 2)))
+    arm = sk.c_out or sk.c_socket
+    hand = sk.c_light or sk.c_core
+    bx1 = int(sk.body[2])
+    out = []
+    for i in range(n):
+        g = sk.blank()
+        pressed = i >= press_from
+        sk.draw_base(g, 0)
+        sk.eyes(g, 0, mode=mode, dx=1)
+        top = _p_button(sk, g, i, n, p, pressed=pressed)
+        if top is None:
+            out.append(g)
+            continue
+        geom = _button_geom(sk, p)
+        target = geom[0] - 5
+        start = bx1 + 1
+        arm_y = top + 1
+        end = start + int(round(float(reach[i]) * (target - start)))
+        sk.hline(g, start, end, arm_y, arm)
+        sk.hline(g, start, end, arm_y + 1, arm)
+        sk.rect(g, end - 1, arm_y, end, arm_y + 1, hand)
+        out.append(g)
+    return out
+
+
+def bi_respawn(sk, n, p, tracking):
+    """Matérialisation : le corps se recompose, le regard se rallume."""
+    eye_seq = _resample(
+        p.get('eyeSeq', ['none', 'none', 'dim', 'dim', 'open', 'open']), n)
+    # densité sur 16 : 16 = corps plein. Le trouage est uniforme, pas couplé à
+    # la profondeur comme celui de `wave.fade` — sinon seul le bas se dissout
+    # et l'effet se lit comme une avarie, pas comme une apparition.
+    dens = _resample(p.get('materialize', [3, 6, 9, 12, 15, 16]), n)
+    bx0, by0, bx1, by1 = (int(v) for v in sk.body)
+    cx, cy = (bx0 + bx1) // 2, (by0 + by1) // 2
+    out = []
+    for i in range(n):
+        g = sk.blank()
+        sk.draw_base(g, 0)
+        sk.eyes(g, 0, mode='none' if tracking else eye_seq[i])
+        d = int(dens[i])
+        if d < 16:
+            for y in range(sk.rows):
+                for x in range(sk.cols):
+                    if g[y][x] != '.' and (x * 7 + y * 13 + i * 5) % 16 >= d:
+                        g[y][x] = '.'
+        if sk.c_spark and i < n - 1:
+            r = 2 + (n - 1 - i)
+            for dx, dy in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+                sk.put(g, cx + dx * r, cy + dy * (r // 2 + 1), sk.c_spark)
+        out.append(g)
+    return out
+
+
+def bi_revive_sign(sk, n, p, tracking):
+    """Image fixe : le pet à terre, une pancarte tenue devant lui."""
+    mode = 'none' if tracking else p.get('eyes', 'dim')
+    oy = int(p.get('offset', 0))
+    squeeze = int(p.get('squeeze', 0))
+    out = []
+    for i in range(n):
+        g = sk.blank()
+        sk.draw_base(g, oy, squeeze=squeeze)
+        sk.eyes(g, oy, mode=mode, squeeze=squeeze)
+        draw_prop(sk, g, p.get('prop', 'sign'), i, n, p)
+        out.append(g)
+    return out
+
+
+def bi_sing(sk, n, p, tracking):
+    """Frame large et haute : bouche ouverte, notes qui montent dans la marge."""
+    widths = _resample(p.get('widths', [3, 6, 4, 7]), n)
+    bob = _resample(p.get('bob', [0, -1, 0, -1]), n)
+    mode = 'none' if tracking else p.get('eyes', 'narrow')
+    cx, my = sk.mouth_pos()
+    out = []
+    for i in range(n):
+        g = sk.blank()
+        oy = int(bob[i])
+        sk.draw_base(g, oy)
+        sk.eyes(g, oy, mode=mode)
+        w = max(2, int(widths[i]))
+        x0, x1 = cx - w // 2, cx + w // 2
+        sk.rect(g, x0, my - 1 + oy, x1, my + 1 + oy, sk.c_core)
+        if w >= 4 and sk.c_dark:
+            sk.rect(g, x0 + 1, my + oy, x1 - 1, my + oy, sk.c_dark)
+        draw_prop(sk, g, p.get('prop', 'notes'), i, n, p)
+        out.append(g)
+    return out
+
+
+def bi_speechless(sk, n, p, tracking):
+    """Regard vide, points de suspension, une goutte qui glisse."""
+    mode = 'none' if tracking else p.get('eyes', 'dim')
+    dots = _resample(p.get('dots', [0, 1, 2, 3, 3]), n)
+    bx0, by0, bx1, _ = (int(v) for v in sk.body)
+    cx = (bx0 + bx1) // 2
+    tone = _accent(sk)
+    out = []
+    for i in range(n):
+        g = sk.blank()
+        sk.draw_base(g, 0)
+        sk.eyes(g, 0, mode=mode)
+        # au-dessus du corps par défaut ; une silhouette qui occupe déjà toute
+        # la hauteur (vapor) déplace les points avec dotsX / dotsY
+        dx0 = int(p.get('dotsX', cx - 3))
+        dy = int(p.get('dotsY', max(0, by0 - 2)))
+        for k in range(int(dots[i])):
+            sk.put(g, dx0 + 3 * k, dy, tone)
+        _drop(sk, g, bx1 + 1, sk.eye_y + i)
+        out.append(g)
+    return out
+
+
+def bi_splat(sk, n, p, tracking):
+    """Le pet s'écrase progressivement — `squeeze` de draw_base fait le travail."""
+    body_h = max(2, int(sk.body[3]) - int(sk.body[1]))
+    default = [max(1, round(body_h * f)) for f in (0.10, 0.25, 0.40, 0.50)]
+    squeeze = _resample(p.get('squeeze', default), n)
+    mode = _eye_mode(p, tracking)
+    bx0, _, bx1, _ = (int(v) for v in sk.body)
+    out = []
+    for i in range(n):
+        g = sk.blank()
+        s = int(squeeze[i])
+        sk.draw_base(g, 0, squeeze=s)
+        sk.eyes(g, 0, mode=mode, squeeze=s, squash=(i >= n // 2))
+        if sk.c_spark:
+            spread = 1 + i
+            sk.put(g, bx0 - spread, sk.size - 1, sk.c_spark)
+            sk.put(g, bx1 + spread, sk.size - 1, sk.c_spark)
+            if i:
+                sk.put(g, bx0 - spread, sk.size - 2, sk.c_spark)
+                sk.put(g, bx1 + spread, sk.size - 2, sk.c_spark)
+        out.append(g)
+    return out
+
+
+def bi_worry(sk, n, p, tracking):
+    """Tremblement nerveux, regard inquiet, goutte de sueur."""
+    shake = _resample(p.get('shake', [-1, 1]), n)
+    mode = 'none' if tracking else p.get('eyes', 'open')
+    tone = _accent(sk)
+    bx1 = int(sk.body[2])
+    out = []
+    for i in range(n):
+        g = sk.blank()
+        ox = int(shake[i])
+        sk.draw_base(g, 0, ox=ox)
+        sk.eyes(g, 0, mode=mode, ox=ox, dy=1)
+        # traits de nervosite au-dessus des orbites exterieures
+        for k, ex in enumerate(sk.eye_x):
+            x = ex + ox + (-1 if k == 0 else sk.eye_w)
+            sk.put(g, x, sk.eye_y - 1, tone)
+            sk.put(g, x + (-1 if k == 0 else 1), sk.eye_y - 2, tone)
+        _drop(sk, g, bx1 + 1 + ox, sk.eye_y + 1 + i)
+        out.append(g)
+    return out
+
+
 BUILTINS = {
     'still': bi_still,
+    'falling': bi_falling,
+    'jump': bi_jump,
+    'press-button': bi_press_button,
+    'respawn': bi_respawn,
+    'revive-sign': bi_revive_sign,
+    'sing': bi_sing,
+    'speechless': bi_speechless,
+    'splat': bi_splat,
+    'worry': bi_worry,
     'blank': bi_blank,
     'idle': bi_idle,
     'float': bi_float,
@@ -855,8 +1409,11 @@ BUILTINS = {
 
 # --------------------------------------------------------------- compilation
 def build_animation(sk, key, expected, tracking):
-    """Compile une entrée d'animation en une liste de `expected` grilles."""
-    spec = sk.animations.get(key, DEFAULT_ANIMATIONS[key])
+    """Compile une entrée d'animation en une liste de `expected` grilles.
+
+    Le canvas courant du skin doit déjà être réglé (`Skin.set_canvas`).
+    """
+    spec = sk.animations.get(key, DEFAULT_ANIMATIONS.get(key, {'builtin': 'still'}))
 
     if isinstance(spec, str):
         spec = {'builtin': spec}
@@ -867,7 +1424,7 @@ def build_animation(sk, key, expected, tracking):
 
     if 'frames' in spec:
         rows = spec['frames']
-        frames = [_grid_from_rows(f, sk.size) for f in rows]
+        frames = [_grid_from_rows(f, sk.cols, sk.rows) for f in rows]
     else:
         name = spec.get('builtin', 'still')
         fn = BUILTINS.get(name)
@@ -887,18 +1444,32 @@ def build_animation(sk, key, expected, tracking):
     return frames
 
 
-def sheet(sk, frames):
-    img = Image.new('RGBA', (sk.frame * len(frames), sk.frame), (0, 0, 0, 0))
-    for i, g in enumerate(frames):
-        img.paste(sk.render(g), (i * sk.frame, 0))
+def sheet(entry):
+    """Planche horizontale : largeur = frameWidth x frames, hauteur = frameHeight."""
+    images = entry['images']
+    w, h = entry['frame_w'], entry['frame_h']
+    img = Image.new('RGBA', (w * len(images), h), (0, 0, 0, 0))
+    for i, im in enumerate(images):
+        img.paste(im, (i * w, 0))
     return img
 
 
 def build_all(sk):
-    """{clé: (frames, gabarit)} pour les 12 animations."""
+    """{clé: entrée} pour tous les états du format.
+
+    Chaque entrée reprend le descripteur et ajoute `grids` et `images`. Les
+    images sont rendues tout de suite, tant que le canvas de l'état est réglé.
+    """
     out = {}
-    for key, template, count, tracking in SLOTS:
-        out[key] = (build_animation(sk, key, count, tracking), template)
+    for e in sk.format['states']:
+        sk.canvas_for(e)
+        grids = build_animation(sk, e['key'], e['frames'], e['tracking'])
+        entry = dict(e)
+        entry['cols'], entry['rows'] = sk.cols, sk.rows
+        entry['grids'] = grids
+        entry['images'] = [sk.render(g) for g in grids]
+        out[e['key']] = entry
+    sk.reset_canvas()
     return out
 
 
@@ -961,7 +1532,7 @@ def build_css(sk):
 
 
 # ---------------------------------------------------------------------- E/S
-def load_skin(target):
+def load_skin(target, fmt=None):
     """Accepte un id de skin, un dossier de skin, ou un chemin de skin.json."""
     path = target
     if not os.path.exists(path):
@@ -972,11 +1543,11 @@ def load_skin(target):
         raise SkinError(f"skin introuvable : {target}")
     with open(path, encoding='utf-8') as fh:
         data = json.load(fh)
-    return Skin(data, source=os.path.abspath(path))
+    return Skin(data, source=os.path.abspath(path), fmt=fmt)
 
 
 def write_skin(sk, outdir=None):
-    """Écrit les 48 PNG et le pet.css. Retourne la liste des fichiers écrits."""
+    """Écrit les PNG du format et le pet.css. Retourne les fichiers écrits."""
     root = outdir or os.path.dirname(sk.source)
     sprites = os.path.join(root, 'sprites')
     css_dir = os.path.join(root, 'css')
@@ -984,12 +1555,14 @@ def write_skin(sk, outdir=None):
     os.makedirs(css_dir, exist_ok=True)
 
     written = []
-    for key, (frames, template) in build_all(sk).items():
-        strip = sheet(sk, frames)
-        single = sk.render(frames[0])
+    for entry in build_all(sk).values():
+        # la frame simple reste la frame 0 ; sans planche, c'est le seul fichier
+        images = [(entry['images'][0], '.png')]
+        if entry['spritesheet']:
+            images.append((sheet(entry), '.spritesheet.png'))
         for variant in ('stable', 'insiders'):
-            name = template.format(v=variant)
-            for img, suffix in ((strip, '.spritesheet.png'), (single, '.png')):
+            name = entry['template'].format(v=variant)
+            for img, suffix in images:
                 path = os.path.join(sprites, f'buddy-{name}{suffix}')
                 img.save(path, optimize=True)
                 written.append(path)
@@ -1011,17 +1584,27 @@ def all_skin_ids():
 
 def main(argv):
     outdir = None
+    fmt_spec = None
     targets = []
     args = list(argv)
     while args:
         a = args.pop(0)
         if a in ('-o', '--out'):
             outdir = args.pop(0)
+        elif a in ('-f', '--format'):
+            fmt_spec = args.pop(0)
         elif a in ('-h', '--help'):
             print(__doc__)
             return 0
         else:
             targets.append(a)
+
+    try:
+        fmt = load_format(fmt_spec)
+    except SkinError as exc:
+        print(f'ERREUR : {exc}')
+        return 1
+    expected = sum(4 if s['spritesheet'] else 2 for s in fmt['states'])
 
     if not targets:
         targets = all_skin_ids()
@@ -1029,10 +1612,12 @@ def main(argv):
             print('Aucun skin dans skins/.')
             return 1
 
+    print(f"format {fmt['id']} : {len(fmt['states'])} etats, "
+          f"{expected} fichiers attendus")
     status = 0
     for target in targets:
         try:
-            sk = load_skin(target)
+            sk = load_skin(target, fmt=fmt)
             files = write_skin(sk, outdir)
         except SkinError as exc:
             print(f'ERREUR [{target}] : {exc}')
@@ -1040,8 +1625,8 @@ def main(argv):
             continue
         pngs = sum(1 for f in files if f.endswith('.png'))
         print(f"skin '{sk.name}' ({sk.id}) : {pngs} PNG + pet.css")
-        if pngs != 48:
-            print(f'  ERREUR : {pngs} PNG au lieu de 48')
+        if pngs != expected:
+            print(f'  ERREUR : {pngs} PNG au lieu de {expected}')
             status = 1
     return status
 

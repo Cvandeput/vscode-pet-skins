@@ -64,11 +64,21 @@
     "cool":               { "builtin": "cool", "params": { "drop": 3 } },
     "sleep":              { "builtin": "sleep", "params": { "settle": [1, 1, 2, 2, 2, 2, 1, 1] } },
     "waking":             { "builtin": "waking", "params": { "mode": "rise", "settle": [2, 2, 1, 1, 1, 0, 0, 0] } },
-    "typing":             { "builtin": "pages", "params": { "rect": [4, 15, 19, 18], "turns": 1 } },
+    "typing":             { "builtin": "pages", "params": { "rect": [4, 15, 19, 18], "turns": 1, "prop": "screen" } },
     "love":               { "builtin": "love", "params": { "heartX": 11, "riseFrom": 2 } },
     "speech":             { "builtin": "speech" },
     "yapping":            { "builtin": "yapping", "params": { "widths": [1, 3, 5, 3, 2] } },
-    "search":             { "builtin": "search", "params": { "depth": 14, "gaze": 1, "prop": "magnifier", "propX": 18, "propY": 6 } }
+    "search":             { "builtin": "search", "params": { "depth": 14, "gaze": 1, "prop": "magnifier", "propX": 18, "propY": 6 } },
+
+    "falling":            { "builtin": "falling", "params": { "lean": [0, 2, 4, 6], "drop": [0, 1, 1, 2] } },
+    "jump":               { "builtin": "jump", "params": { "offsets": [2, -2, -6, -6, -2, 2], "squeeze": [3, 1, 0, 0, 1, 2], "feet": [0, -1, -2, -2, -1, 0] } },
+    "press-button":       { "builtin": "press-button", "params": { "reach": [0, 0.35, 0.7, 1, 1, 1], "pressFrom": 4 } },
+    "respawn":            { "builtin": "respawn", "params": { "materialize": [3, 6, 9, 12, 15, 16] } },
+    "revive-sign":        { "builtin": "revive-sign", "params": { "eyes": "dim", "signHalf": 7, "propY1": 7 } },
+    "sing":               { "builtin": "sing", "params": { "widths": [3, 6, 4, 7], "bob": [0, -1, 0, -1], "propY0": 15 } },
+    "speechless":         { "builtin": "speechless", "params": { "dots": [0, 1, 2, 3, 3] } },
+    "splat":              { "builtin": "splat", "params": { "squeeze": [1, 3, 5, 6] } },
+    "worry":              { "builtin": "worry", "params": { "shake": [-1, 1] } }
   },
 
   "base": [

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Restaure les sprites, workbench.html et product.json d'origine.
 

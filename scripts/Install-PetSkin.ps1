@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Installe un skin personnalisé pour le "pet" natif de VS Code (>= 1.131).
 

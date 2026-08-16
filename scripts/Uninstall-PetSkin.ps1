@@ -10,6 +10,11 @@
     qui a déjà réinstallé les fichiers d'origine — le script le dit et sort
     normalement, après avoir supprimé la tâche planifiée.
 
+    La restauration ne suppose aucun nombre de sprites : elle remet tout ce
+    que la sauvegarde contient (celle-ci a été prise au joker buddy-*.png).
+    Le format relevé au moment de la sauvegarde est noté dans son paths.json,
+    à titre indicatif.
+
 .PARAMETER ListBackups
     Affiche les sauvegardes disponibles et sort.
 
@@ -162,6 +167,7 @@ $PetDir    = $paths.PetDir
 $Workbench = $paths.Workbench
 $Product   = $paths.Product
 if ($build.Commit) { Say "   build cible : $($build.Commit)" }
+if ($saved -and $saved.Format) { Say "   format releve a la sauvegarde : $($saved.Format)" }
 
 # --------------------------------------------------------------- VS Code fermé
 $running = Get-Process -Name Code -ErrorAction SilentlyContinue
@@ -171,15 +177,24 @@ if ($running) {
 }
 
 # --------------------------------------------------------------- restauration
+# La sauvegarde a ete prise au joker buddy-*.png : on restaure exactement ce
+# qu'elle contient, quel qu'en soit le nombre. Aucun compte n'est suppose ici
+# — le format de VS Code change d'une version a l'autre (48 fichiers en 1.132,
+# 82 en 1.133) et la sauvegarde fait foi.
+$saved_sprites = @(Get-ChildItem (Join-Path $bk 'chatPet\buddy-*.png') -ErrorAction SilentlyContinue)
+if (-not $saved_sprites) { Fail "aucun sprite dans $bk\chatPet, sauvegarde inexploitable." }
+
 Copy-Item (Join-Path $bk 'chatPet\buddy-*.png') $PetDir -Force
 Copy-Item (Join-Path $bk 'workbench.html') $Workbench -Force
 if (Test-Path $Product) { Copy-Item (Join-Path $bk 'product.json') $Product -Force }
 
 $bad = 0
-Get-ChildItem (Join-Path $bk 'chatPet\buddy-*.png') | ForEach-Object {
-    $a = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
-    $b = (Get-FileHash (Join-Path $PetDir $_.Name) -Algorithm SHA256).Hash
-    if ($a -ne $b) { $bad++ }
+foreach ($f in $saved_sprites) {
+    $dest = Join-Path $PetDir $f.Name
+    if (-not (Test-Path $dest)) { $bad++; Say "   non restaure : $($f.Name)" 'Red'; continue }
+    $a = (Get-FileHash $f.FullName -Algorithm SHA256).Hash
+    $b = (Get-FileHash $dest       -Algorithm SHA256).Hash
+    if ($a -ne $b) { $bad++; Say "   different de la sauvegarde : $($f.Name)" 'Red' }
 }
 if ($bad) { Fail "$bad fichiers restaures ne correspondent pas." }
 
@@ -189,6 +204,6 @@ Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction Silent
 $stateFile = Join-Path $StateDir 'state.json'
 if (Test-Path $stateFile) { Remove-Item $stateFile -Force -ErrorAction SilentlyContinue }
 
-Say '   48 sprites, workbench.html et product.json restaures' 'Green'
+Say "   $($saved_sprites.Count) sprites, workbench.html et product.json restaures" 'Green'
 Say '   tache planifiee supprimee si elle existait' 'Green'
 Say '   Relance VS Code.' 'Green'

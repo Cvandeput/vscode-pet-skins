@@ -9,7 +9,15 @@
       - la résolution du build courant (dossier nommé d'après le hash du
         commit), par le commit déclaré et non par une date de modification ;
       - le calcul des chemins cibles (sprites, workbench.html, product.json) ;
+      - le chargement du descripteur de format (schema\formats\<id>.json) et
+        le contrôle d'intégrité d'un jeu de sprites contre ce descripteur ;
       - le test « le skin est-il déjà en place ? » utilisé pour l'idempotence.
+
+    Rien n'est codé en dur sur le format des sprites : le nombre d'états, le
+    nombre de fichiers et les dimensions de chaque frame sont lus dans le
+    descripteur. VS Code change ce format d'une version à l'autre (48 fichiers
+    et frame carrée en 1.132, 82 fichiers et frames rectangulaires en 1.133) :
+    la seule façon de ne pas se tromper est de relire le relevé.
 
     Aucune fonction n'écrit dans l'installation de VS Code, et aucune
     n'affiche quoi que ce soit : les avertissements sont retournés dans le
@@ -241,18 +249,240 @@ function Get-PetPaths {
     }
 }
 
+# ---- descripteur de format
+
+function Get-PetFormatVersionKey {
+    <#
+        Clé de tri d'un identifiant de format ("1.133", "1.133.0"). Retourne
+        un [version] quand c'est possible, sinon [version]0.0 : un id exotique
+        se retrouve en queue de tri plutôt que de faire échouer la comparaison.
+    #>
+    param([string] $Id)
+
+    $m = [regex]::Match("$Id", '\d+(\.\d+){0,3}')
+    if ($m.Success) {
+        try { return [version] $m.Value } catch { $null = $_ }
+    }
+    return [version] '0.0'
+}
+
+function Get-PetFormatFileNames {
+    <#
+        Noms de fichiers attendus pour un état du descripteur, avec les
+        dimensions attendues de chacun.
+
+        Convention de nommage de VS Code (cf. tools\probe_format.py) :
+            buddy-<état>-<stable|insiders>[-tracking]-<suffixe>.png
+            buddy-<état>-<stable|insiders>[-tracking]-<suffixe>.spritesheet.png
+
+        Le suffixe numérique du nom est la HAUTEUR de la frame, pas sa largeur.
+        Les deux variantes (stable / insiders) sont identiques, d'où 4 fichiers
+        par état — 2 seulement quand l'état n'a pas de spritesheet.
+
+        Retourne une table @{ nom = @{ W; H; Sheet } }.
+    #>
+    param([Parameter(Mandatory)] $State)
+
+    $fw = [int] $State.frameWidth
+    $fh = [int] $State.frameHeight
+    $n  = [int] $State.frames
+    if ($n -lt 1) { $n = 1 }
+    $track = ''
+    if ($State.tracking) { $track = '-tracking' }
+
+    $out = @{}
+    foreach ($variant in @('stable', 'insiders')) {
+        $stem = "buddy-{0}-{1}{2}-{3}" -f $State.state, $variant, $track, $State.suffix
+        $out["$stem.png"] = @{ W = $fw; H = $fh; Sheet = $false }
+        if ($State.spritesheet) {
+            $out["$stem.spritesheet.png"] = @{ W = $fw * $n; H = $fh; Sheet = $true }
+        }
+    }
+    return $out
+}
+
+function Get-PetFormat {
+    <#
+        Charge le descripteur de format qui décrit les sprites attendus.
+
+        Sélection, par ordre de priorité :
+          1. -Id : descripteur imposé (id déclaré ou nom de fichier) ;
+          2. -VSCodeVersion : le descripteur dont le tableau "vscode" contient
+             cette version ;
+          3. à défaut, le descripteur d'id le plus récent, avec un
+             avertissement — le format a pu changer sans qu'on l'ait relevé.
+
+        Retourne @{ Id; Path; States; Files; FileCount; StateCount; Matched;
+        Warnings } ou $null si aucun descripteur n'est lisible. Comme le reste
+        du fichier, rien n'est affiché : les avertissements sont retournés.
+    #>
+    param(
+        # _Common.ps1 vit dans scripts\, les descripteurs dans schema\formats\ :
+        # la valeur par defaut evite que chaque appelant ait a la recalculer.
+        [string] $FormatDir = (Join-Path (Split-Path -Parent $PSScriptRoot) 'schema\formats'),
+        [string] $Id,
+        [string] $VSCodeVersion
+    )
+
+    $warnings = @()
+    $all = @()
+    foreach ($f in @(Get-ChildItem (Join-Path $FormatDir '*.json') -ErrorAction SilentlyContinue)) {
+        $doc = $null
+        try { $doc = Get-Content $f.FullName -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json }
+        catch { $doc = $null }
+        if (-not $doc -or -not $doc.states) { continue }
+        $fid = if ($doc.id) { [string] $doc.id } else { $f.BaseName }
+        $all += @{ Id = $fid; Path = $f.FullName; Doc = $doc
+                   Vscode = @($doc.vscode); File = $f.BaseName }
+    }
+    if (-not $all) { return $null }
+
+    $all = @($all | Sort-Object { Get-PetFormatVersionKey $_.Id } -Descending)
+
+    $pick = $null
+    $matched = $false
+    if ($Id) {
+        $pick = $all | Where-Object { $_.Id -eq $Id -or $_.File -eq $Id } | Select-Object -First 1
+        if (-not $pick) {
+            $known = ($all | ForEach-Object { $_.Id }) -join ', '
+            $warnings += "format '$Id' inconnu ; disponibles : $known"
+            return @{ Id = $Id; Path = $null; States = @(); Files = @{}
+                      FileCount = 0; StateCount = 0; Matched = $false; Warnings = $warnings }
+        }
+        $matched = $true
+    } elseif ($VSCodeVersion) {
+        $pick = $all | Where-Object { $_.Vscode -contains $VSCodeVersion } | Select-Object -First 1
+        if ($pick) {
+            $matched = $true
+        } else {
+            $pick = $all[0]
+            $warnings += "format non releve pour la version $VSCodeVersion, on tente avec $($pick.Id)"
+            $warnings += "si le rendu est faux, relance : python tools\probe_format.py --out schema\formats\$VSCodeVersion.json"
+        }
+    } else {
+        $pick = $all[0]
+        $warnings += "version de VS Code indeterminee, on tente avec le format $($pick.Id)"
+    }
+
+    $states = @($pick.Doc.states)
+    $files = @{}
+    foreach ($s in $states) {
+        foreach ($kv in (Get-PetFormatFileNames -State $s).GetEnumerator()) {
+            $files[$kv.Key] = $kv.Value
+        }
+    }
+
+    return @{
+        Id         = $pick.Id
+        Path       = $pick.Path
+        States     = $states
+        Files      = $files
+        FileCount  = $files.Count
+        StateCount = $states.Count
+        Matched    = $matched
+        Warnings   = $warnings
+    }
+}
+
+# ---- contrôle d'intégrité d'un jeu de sprites
+
+function Test-SpriteSet {
+    <#
+        Confronte un dossier de sprites au descripteur de format. Retourne la
+        liste (éventuellement vide) des anomalies, chacune nommant le fichier
+        fautif.
+
+        Contrôles :
+          - chaque fichier annoncé par le descripteur est présent ;
+          - le PNG simple mesure frameWidth x frameHeight ;
+          - la spritesheet mesure (frameWidth * frames) x frameHeight ;
+          - aucun buddy-*.png en trop dans le dossier source ;
+          - avec -PetDir, chaque source a un homologue de mêmes dimensions
+            dans la cible. C'est ce dernier point qui révèle un décalage de
+            version : VS Code attend le format de SON build, pas celui du
+            descripteur.
+    #>
+    param(
+        [Parameter(Mandatory)][string] $SpriteDir,
+        [Parameter(Mandatory)] $Format,
+        [string] $PetDir
+    )
+
+    $problems = @()
+    if (-not $Format -or -not $Format.Files -or $Format.Files.Count -eq 0) {
+        $problems += "descripteur de format vide ou illisible"
+        return $problems
+    }
+    if (-not (Test-Path $SpriteDir)) {
+        $problems += "dossier des sprites introuvable : $SpriteDir"
+        return $problems
+    }
+
+    $present = @{}
+    foreach ($f in @(Get-ChildItem (Join-Path $SpriteDir 'buddy-*.png') -ErrorAction SilentlyContinue)) {
+        $present[$f.Name] = $f.FullName
+    }
+
+    foreach ($name in ($Format.Files.Keys | Sort-Object)) {
+        $want = $Format.Files[$name]
+        if (-not $present.ContainsKey($name)) {
+            $problems += "$name : manquant dans $SpriteDir"
+            continue
+        }
+        $path = $present[$name]
+        $s = Get-PngSize $path
+        if (-not $s.Valid) {
+            $problems += "$name : PNG illisible ou tronque"
+            continue
+        }
+        if ($s.W -ne $want.W -or $s.H -ne $want.H) {
+            $kind = if ($want.Sheet) { 'planche' } else { 'frame' }
+            $problems += "$name : $kind $($s.W)x$($s.H), attendu $($want.W)x$($want.H)"
+            continue
+        }
+        if ($PetDir) {
+            $target = Join-Path $PetDir $name
+            if (-not (Test-Path $target)) {
+                $problems += "$name : pas d'homologue dans la cible"
+                continue
+            }
+            $t = Get-PngSize $target
+            if (-not $t.Valid) {
+                $problems += "$name : homologue cible illisible"
+            } elseif ($s.W -ne $t.W -or $s.H -ne $t.H) {
+                $problems += "$name : $($s.W)x$($s.H) vs original $($t.W)x$($t.H) - format de VS Code different"
+            }
+        }
+    }
+
+    foreach ($name in ($present.Keys | Sort-Object)) {
+        if (-not $Format.Files.ContainsKey($name)) {
+            $problems += "$name : fichier en trop, absent du format $($Format.Id)"
+        }
+    }
+
+    return $problems
+}
+
 # ---- idempotence
 
 function Test-SkinApplied {
     <#
-        Vrai si les 48 sprites cibles ont le même SHA256 que les sources ET
-        que le marqueur CSS est présent dans workbench.html.
+        Vrai si tous les sprites annoncés par le descripteur ont le même
+        SHA256 côté source et côté cible, ET que le marqueur CSS est présent
+        dans workbench.html.
+
+        C'est cette fonction qui porte l'idempotence : un compte de fichiers
+        faux la ferait répondre « non » à chaque exécution, et la tâche
+        planifiée créerait une sauvegarde à chaque ouverture de session. Le
+        nombre attendu vient donc du descripteur, jamais d'une constante.
     #>
     param(
         [Parameter(Mandatory)][string] $SpriteDir,
         [Parameter(Mandatory)][string] $PetDir,
         [Parameter(Mandatory)][string] $Workbench,
-        [string] $Marker = 'pet-skin'
+        [string] $Marker = 'pet-skin',
+        $Format
     )
 
     if (-not (Test-Path $Workbench)) { return $false }
@@ -260,7 +490,11 @@ function Test-SkinApplied {
     if (-not $html -or $html -notmatch [regex]::Escape("<!-- $Marker`:start -->")) { return $false }
 
     $src = @(Get-ChildItem (Join-Path $SpriteDir 'buddy-*.png') -ErrorAction SilentlyContinue)
-    if ($src.Count -ne 48) { return $false }
+    if ($Format -and $Format.FileCount -gt 0) {
+        if ($src.Count -ne $Format.FileCount) { return $false }
+    } elseif ($src.Count -eq 0) {
+        return $false
+    }
 
     foreach ($f in $src) {
         $target = Join-Path $PetDir $f.Name

@@ -78,9 +78,12 @@ python tools/check_skins.py
 générateur s'y conforme. Il ne reste à dessiner que les états réellement
 nouveaux.
 
-Si tu installes le skin sur une version non relevée, l'installateur **refuse
-d'écrire** plutôt que de produire un pet incohérent, et te dit quelle commande
-lancer. Rien n'est cassé, rien n'est à réparer à la main.
+Si tu installes le skin sur une version non relevée, l'installateur t'avertit
+en jaune, te donne la commande de relevé, puis tente quand même avec le dernier
+format connu. Il compare ensuite chaque sprite à son homologue dans
+l'installation : si les tailles ne concordent pas, il **refuse d'écrire** et
+liste les fichiers fautifs, plutôt que de produire un pet incohérent. Dans les
+deux cas rien n'est modifié, et rien n'est à réparer à la main.
 
 ---
 

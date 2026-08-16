@@ -4,16 +4,22 @@
 
 .DESCRIPTION
     Trois opérations, toutes réversibles :
-      1. remplace les 48 PNG du pet dans resources\app\out\...\media\chatPet
+      1. remplace les PNG du pet dans resources\app\out\...\media\chatPet
       2. injecte un bloc <style> dans workbench.html (repositionne et
          recolore les pupilles DOM)
       3. met à jour le checksum de workbench.html dans product.json, ce qui
          évite la bannière "Your Code installation appears corrupt"
 
+    Le nombre de sprites, leurs noms et leurs dimensions ne sont pas codés en
+    dur : ils sont lus dans le descripteur de format schema\formats\<id>.json,
+    choisi d'après la version de VS Code installée. VS Code remanie ce format
+    d'une version à l'autre (48 fichiers et frame toujours carrée en 1.132 ;
+    82 fichiers, 21 états et des frames rectangulaires en 1.133).
+
     Tout est sauvegardé avant écriture dans %USERPROFILE%\.vscode-pet-skin\backups\<timestamp>.
-    Le script est idempotent : si les 48 sprites cibles sont déjà identiques
-    aux sources et que le marqueur CSS est présent, il sort sans rien écrire
-    ni sauvegarder.
+    Le script est idempotent : si les sprites cibles sont déjà identiques aux
+    sources et que le marqueur CSS est présent, il sort sans rien écrire ni
+    sauvegarder.
 
 .PARAMETER Skin
     Nom du skin à installer, càd un sous-dossier de skins\. S'il n'est pas
@@ -23,6 +29,15 @@
 .PARAMETER List
     Affiche les skins disponibles (nom, auteur, versions vérifiées) et sort.
     Ne demande aucune élévation.
+
+.PARAMETER Format
+    Force le descripteur de format à utiliser, par son id ou par le nom du
+    fichier schema\formats\<id>.json (par exemple « 1.133 »). Sans ce
+    paramètre, le descripteur est choisi d'après la version lue dans
+    resources\app\package.json ; si aucun ne la déclare, le script avertit et
+    prend le plus récent. Pour relever le format d'une nouvelle version :
+
+        python tools\probe_format.py --out schema\formats\<version>.json
 
 .PARAMETER KeepBackups
     Nombre de sauvegardes à conserver. Les plus anciennes sont supprimées
@@ -77,6 +92,7 @@ param(
     [string] $SpriteDir,
     [string] $CssFile,
     [string] $VSCodeRoot,
+    [string] $Format,
     [int]    $KeepBackups = 5,
     [string] $LogFile,
     [switch] $List,
@@ -232,32 +248,52 @@ if ($build.Method -eq 'lastwrite') {
     Say '   AVERTISSEMENT : build choisi par date de modification, verifie la cible.' 'Yellow'
 }
 
+# --------------------------------------------------------------- format
+# Le format des sprites depend de la version de VS Code installee : on lit la
+# version puis on choisit le descripteur qui la declare. Sans correspondance,
+# on avertit et on tente le plus recent plutot que de bloquer.
+$vscodeVersion = $null
+$pkg = Join-Path $base 'resources\app\package.json'
+if (Test-Path $pkg) {
+    try { $vscodeVersion = (Get-Content $pkg -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json).version }
+    catch { $vscodeVersion = $null }
+}
+
+$formatDir = Join-Path $RepoRoot 'schema\formats'
+$fmtArgs = @{ FormatDir = $formatDir }
+if ($Format)        { $fmtArgs['Id'] = $Format }
+if ($vscodeVersion) { $fmtArgs['VSCodeVersion'] = $vscodeVersion }
+$fmt = Get-PetFormat @fmtArgs
+if (-not $fmt) { Fail "aucun descripteur de format lisible dans $formatDir" }
+if (-not $fmt.Path) {
+    foreach ($w in $fmt.Warnings) { Write-Host "  ECHEC : $w" -ForegroundColor Red }
+    exit 1
+}
+foreach ($w in $fmt.Warnings) { Say "   AVERTISSEMENT : $w" 'Yellow' }
+
+Say '== Format' 'Cyan'
+if ($vscodeVersion) { Say "   version de VS Code : $vscodeVersion" }
+else { Say '   version de VS Code indeterminee (package.json illisible)' 'Yellow' }
+$forced = if ($Format) { ' (impose par -Format)' } else { '' }
+Say "   descripteur : $($fmt.Id)$forced"
+Say "   $($fmt.StateCount) etats, $($fmt.FileCount) fichiers attendus"
+
 # --------------------------------------------------------------- contrôles
 # Get-PngSize vit dans _Common.ps1 : sa version naive se trompait sur toute
 # image de plus de 255 px de large (cf. le commentaire de la fonction).
+# Aucun nombre n'est code en dur ici : Test-SpriteSet confronte le dossier au
+# descripteur (noms attendus, dimensions de frame et de planche, fichiers en
+# trop) puis compare chaque source a son homologue dans la cible.
 
 Say '== Controle d''integrite des sources' 'Cyan'
-$src = Get-ChildItem (Join-Path $SpriteDir 'buddy-*.png') -ErrorAction SilentlyContinue
-if ($src.Count -ne 48) { Fail "48 fichiers buddy-* attendus, $($src.Count) trouves dans $SpriteDir" }
-
-$problems = @()
-foreach ($f in $src) {
-    $target = Join-Path $PetDir $f.Name
-    if (-not (Test-Path $target)) { $problems += "$($f.Name) : pas d'homologue dans la cible"; continue }
-    $s = Get-PngSize $f.FullName
-    $t = Get-PngSize $target
-    if ($s.H -ne 96)          { $problems += "$($f.Name) : hauteur $($s.H), attendu 96" }
-    if ($s.W % 96 -ne 0)      { $problems += "$($f.Name) : largeur $($s.W), non multiple de 96" }
-    if ($s.W -ne $t.W -or $s.H -ne $t.H) {
-        $problems += "$($f.Name) : $($s.W)x$($s.H) vs original $($t.W)x$($t.H) — nb de frames different"
-    }
-}
+$problems = @(Test-SpriteSet -SpriteDir $SpriteDir -Format $fmt -PetDir $PetDir)
 if ($problems) {
-    Write-Host '   Anomalies :' -ForegroundColor Red
+    Write-Host "   Anomalies ($($problems.Count)) :" -ForegroundColor Red
     $problems | ForEach-Object { Write-Host "     $_" -ForegroundColor Red }
     Fail 'aucune ecriture effectuee.'
 }
-Say "   48/48 OK (dimensions, homologues, nombre de frames)"
+$src = @(Get-ChildItem (Join-Path $SpriteDir 'buddy-*.png') -ErrorAction SilentlyContinue)
+Say "   $($fmt.FileCount)/$($fmt.FileCount) OK (noms, dimensions, homologues)"
 
 # --------------------------------------------------------------- garde-fou de version
 # skin.json declare les versions de VS Code sur lesquelles le skin a ete
@@ -267,12 +303,6 @@ $skinJson = Join-Path $SkinDir 'skin.json'
 if (Test-Path $skinJson) {
     try { $skinMeta = Get-Content $skinJson -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json }
     catch { $skinMeta = $null }
-}
-$vscodeVersion = $null
-$pkg = Join-Path $base 'resources\app\package.json'
-if (Test-Path $pkg) {
-    try { $vscodeVersion = (Get-Content $pkg -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json).version }
-    catch { $vscodeVersion = $null }
 }
 if ($skinMeta -and $skinMeta.verifiedOn) {
     $verified = @($skinMeta.verifiedOn)
@@ -296,10 +326,12 @@ if ($htmlProbe -and $htmlProbe -match '<meta\s+http-equiv="Content-Security-Poli
 }
 
 # --------------------------------------------------------------- idempotence
-# Rien a faire si les 48 cibles sont deja identiques aux sources et que le
+# Rien a faire si les cibles sont deja identiques aux sources et que le
 # marqueur CSS est present : on sort avant toute ecriture et toute sauvegarde
-# (la tache planifiee rejoue l'install a chaque ouverture de session).
-if (Test-SkinApplied -SpriteDir $SpriteDir -PetDir $PetDir -Workbench $Workbench -Marker $Marker) {
+# (la tache planifiee rejoue l'install a chaque ouverture de session). Le
+# nombre attendu vient du descripteur : un compte fige ferait recreer une
+# sauvegarde a chaque ouverture de session.
+if (Test-SkinApplied -SpriteDir $SpriteDir -PetDir $PetDir -Workbench $Workbench -Marker $Marker -Format $fmt) {
     Say '== Etat' 'Cyan'
     Say '   skin deja en place, rien a faire' 'Green'
     exit 0
@@ -317,7 +349,7 @@ Copy-Item $Product   (Join-Path $bk 'product.json')   -Force
 # precedent. C'est la seule qui permette un retour a l'etat initial.
 $pristine = -not ($htmlProbe -match [regex]::Escape("<!-- $Marker`:start -->"))
 @{ Root = $VSCodeRoot; Base = $base; Commit = $build.Commit; Version = $vscodeVersion
-   Pristine = $pristine; Skin = $Skin } |
+   Pristine = $pristine; Skin = $Skin; Format = $fmt.Id } |
     ConvertTo-Json | Set-Content (Join-Path $bk 'paths.json') -Encoding UTF8
 if ($pristine) { Say '   sauvegarde d''origine (pet de Microsoft), protegee de la purge' 'Green' }
 Set-Content (Join-Path $StateDir 'LAST_BACKUP.txt') $bk -Encoding UTF8
@@ -362,7 +394,7 @@ foreach ($f in $src) {
 }
 if ($mismatch) { Fail "$mismatch fichiers copies ne correspondent pas a la source." }
 Say '== Sprites' 'Cyan'
-Say '   48 fichiers copies, verifies par SHA256'
+Say "   $($src.Count) fichiers copies, verifies par SHA256"
 
 # --------------------------------------------------------------- 2. CSS
 $css  = Get-Content $CssFile -Raw

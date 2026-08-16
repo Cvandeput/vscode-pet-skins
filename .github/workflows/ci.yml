@@ -89,8 +89,12 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Pillow est EPINGLE : l'encodeur PNG (zlib, filtrage) peut changer d'une
+      # version a l'autre, ce qui ferait echouer `git diff --exit-code` alors
+      # que les pixels sont identiques. Pour monter de version : bump ici, puis
+      # `python generator/petgen.py` et commiter les sprites regeneres.
       - name: Dependances
-        run: python -m pip install --quiet pillow jsonschema
+        run: python -m pip install --quiet 'pillow==12.1.1' jsonschema
 
       # Schema versionne dans le depot, 48 sprites, dimensions, nb de frames.
       - name: Conformite des skins
@@ -106,6 +110,8 @@ jobs:
             echo '::error::la regeneration produit un diff : les sprites ou le'
             echo '::error::pet.css commites ne correspondent plus a skin.json.'
             echo '::error::Relance `python generator/petgen.py` et commite.'
+            echo '::error::Si seuls des PNG different sans changement de skin.json,'
+            echo '::error::verifie la version de Pillow epinglee dans ce workflow.'
             exit 1
           fi
 

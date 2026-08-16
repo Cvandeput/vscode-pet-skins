@@ -120,13 +120,6 @@ function Resolve-VSCodeBuild {
         if ($c -and ($commits -notcontains $c)) { $commits += $c }
     }
 
-    foreach ($c in $commits) {
-        $dir = Join-Path $VSCodeRoot $c
-        if ((Test-Path $dir) -and (Test-Path (Join-Path $dir 'resources\app\out'))) {
-            return @{ Root = $VSCodeRoot; Base = $dir; Commit = $c; Method = 'commit'; Warnings = $warnings }
-        }
-    }
-
     # Sous-dossiers "hash" plausibles.
     $hashDirs = @(Get-ChildItem $VSCodeRoot -Directory -ErrorAction SilentlyContinue |
         Where-Object { Test-Path (Join-Path $_.FullName 'resources\app\out') })
@@ -140,14 +133,97 @@ function Resolve-VSCodeBuild {
         return $null
     }
 
+    # La source fiable est le product.json de CHAQUE build : celui de la racine
+    # n'existe pas toujours, et Code.exe --version peut rapporter la version
+    # d'Electron. Le dossier, lui, porte un commit TRONQUE (10 caracteres sur
+    # les builds observes) : on compare donc par prefixe, pas par egalite.
+    $cands = @()
+    foreach ($d in $hashDirs) {
+        $own = Get-VSCodeCommitFromProduct $d.FullName
+        $cands += @{ Dir = $d; Commit = $own }
+    }
+
+    foreach ($c in $cands) {
+        if (-not $c.Commit) { continue }
+        $match = $false
+        foreach ($ref in $commits) {
+            if ($ref -eq $c.Commit -or $ref.StartsWith($c.Dir.Name) -or $c.Commit.StartsWith($c.Dir.Name)) {
+                $match = $true; break
+            }
+        }
+        # Sans commit de reference exterieur, un build qui se declare lui-meme
+        # et dont le dossier porte son prefixe est deja une identification sure.
+        if (-not $commits -and $c.Commit.StartsWith($c.Dir.Name)) { $match = $true }
+        if ($match) {
+            return @{ Root = $VSCodeRoot; Base = $c.Dir.FullName; Commit = $c.Commit
+                      Method = 'commit'; Warnings = $warnings }
+        }
+    }
+
+    # Un seul build installe : aucune ambiguite a lever, pas d'avertissement.
+    if ($hashDirs.Count -eq 1) {
+        $only = $cands[0]
+        $label = $only.Commit
+        if (-not $label) { $label = $only.Dir.Name }
+        return @{ Root = $VSCodeRoot; Base = $only.Dir.FullName; Commit = $label
+                  Method = 'unique'; Warnings = $warnings }
+    }
+
     # Dernier recours : le plus récemment modifié.
     $pick = $hashDirs | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($commits) {
-        $warnings += "aucun dossier ne porte le commit declare ($($commits -join ', ')) ; repli sur le dossier le plus recent : $($pick.Name)"
+        $warnings += "aucun dossier ne correspond au commit declare ($($commits -join ', ')) ; repli sur le dossier le plus recent : $($pick.Name)"
     } else {
         $warnings += "commit du build indetermine ; repli sur le dossier le plus recent : $($pick.Name)"
     }
     return @{ Root = $VSCodeRoot; Base = $pick.FullName; Commit = $pick.Name; Method = 'lastwrite'; Warnings = $warnings }
+}
+
+# ---- lecture d'en-tête PNG
+
+function Get-PngSize {
+    <#
+        Dimensions d'un PNG, lues dans le chunk IHDR (offsets 16 à 23,
+        gros-boutiste).
+
+        Les casts [int] ne sont PAS décoratifs. Sous Windows PowerShell 5.1,
+        `-shl` conserve le type de l'opérande gauche : décaler un [byte] de 8
+        bits ou plus renvoie 0, puisque tout sort de la largeur du type.
+
+            [byte]0x04 -shl 8   ->  0        (et le résultat est un [byte])
+            [int]0x04  -shl 8   ->  1024
+
+        Sans les casts, toute image de plus de 255 px de large est mesurée sur
+        son seul octet de poids faible : une planche de 1248 px (0x04E0) est
+        lue 224 px (0xE0), et le contrôle « largeur multiple de 96 » refuse
+        alors des fichiers parfaitement valides.
+    #>
+    param([Parameter(Mandatory)][string] $Path)
+
+    $buf = New-Object byte[] 24
+    $fs = [IO.File]::OpenRead($Path)
+    try {
+        # Stream.Read peut rendre moins d'octets que demandé : on boucle.
+        $read = 0
+        while ($read -lt 24) {
+            $n = $fs.Read($buf, $read, 24 - $read)
+            if ($n -le 0) { break }
+            $read += $n
+        }
+    } finally { $fs.Dispose() }
+    if ($read -lt 24) { return @{ W = 0; H = 0; Valid = $false } }
+
+    # signature PNG : 89 50 4E 47 0D 0A 1A 0A
+    $sig = @(0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A)
+    for ($i = 0; $i -lt 8; $i++) {
+        if ($buf[$i] -ne $sig[$i]) { return @{ W = 0; H = 0; Valid = $false } }
+    }
+
+    $w = ([int]$buf[16] -shl 24) -bor ([int]$buf[17] -shl 16) -bor
+         ([int]$buf[18] -shl 8)  -bor  [int]$buf[19]
+    $h = ([int]$buf[20] -shl 24) -bor ([int]$buf[21] -shl 16) -bor
+         ([int]$buf[22] -shl 8)  -bor  [int]$buf[23]
+    return @{ W = $w; H = $h; Valid = $true }
 }
 
 # ---- chemins cibles

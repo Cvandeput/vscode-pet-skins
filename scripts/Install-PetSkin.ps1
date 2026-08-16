@@ -233,16 +233,8 @@ if ($build.Method -eq 'lastwrite') {
 }
 
 # --------------------------------------------------------------- contrôles
-function Get-PngSize([string]$path) {
-    $fs = [IO.File]::OpenRead($path)
-    try {
-        $buf = New-Object byte[] 24
-        [void]$fs.Read($buf, 0, 24)
-    } finally { $fs.Dispose() }
-    $w = ($buf[16] -shl 24) -bor ($buf[17] -shl 16) -bor ($buf[18] -shl 8) -bor $buf[19]
-    $h = ($buf[20] -shl 24) -bor ($buf[21] -shl 16) -bor ($buf[22] -shl 8) -bor $buf[23]
-    return @{ W = $w; H = $h }
-}
+# Get-PngSize vit dans _Common.ps1 : sa version naive se trompait sur toute
+# image de plus de 255 px de large (cf. le commentaire de la fonction).
 
 Say '== Controle d''integrite des sources' 'Cyan'
 $src = Get-ChildItem (Join-Path $SpriteDir 'buddy-*.png') -ErrorAction SilentlyContinue

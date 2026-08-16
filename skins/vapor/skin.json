@@ -1,0 +1,97 @@
+{
+  "format": 1,
+  "id": "vapor",
+  "name": "Vapor",
+  "description": "Entité flottante, ni pieds ni écran : une flamme spectrale à la tête large qui s'effile vers le bas et s'y dissipe, cernée d'un halo diffus. Palette froide, du blanc du cœur au violet sombre des bords, et deux yeux en fente lumineuse qui suivent le curseur.",
+  "author": "Corentin Vandeput",
+  "license": "MIT",
+  "verifiedOn": ["1.132.0"],
+
+  "grid": 24,
+  "scale": 4,
+
+  "speechBubble": false,
+
+  "palette": {
+    "A": "#F4FEFF",
+    "B": "#C9F4FF",
+    "C": "#8AE4FA",
+    "D": "#4FC6EC",
+    "E": "#2C93C9",
+    "F": "#3D63B8",
+    "G": "#5B3FA8",
+    "H": "#34215E",
+    "I": "#1D1136",
+    "J": "#DFF9FF",
+    "K": "#7ED8FFA0",
+    "L": "#B39BFF",
+    "M": "#7E63D8A0",
+    "N": "#7E63D850",
+    "P": "#FF7FBF"
+  },
+
+  "roles": {
+    "eyeCore": "A",
+    "eyeLight": "B",
+    "eyeShadow": "E",
+    "socket": "I",
+    "socketRim": "H",
+    "halo": "K",
+    "haloStrong": "L",
+    "spark": "J",
+    "shadow": "I",
+    "outline": "H",
+    "bubbleFill": "G",
+    "heart": "P",
+    "bubbleShine": "B"
+  },
+
+  "anchors": {
+    "eyes":  { "left": [6, 8], "right": [14, 8], "socket": [4, 3], "style": "slit" },
+    "body":  [3, 3, 20, 20],
+    "mouth": [11, 15],
+    "feet":  []
+  },
+
+  "animations": {
+    "idle":               { "builtin": "float", "params": { "amp": 1, "cycle": 50, "blink": [23, 27], "wave": { "from": 14, "amp": 1, "period": 7, "fade": true, "cycle": 25 } } },
+    "idle-tracking":      { "builtin": "float", "params": { "amp": 1, "cycle": 50, "blink": [23, 27], "wave": { "from": 14, "amp": 1, "period": 7, "fade": true, "cycle": 25 } } },
+    "rendering-tracking": { "builtin": "float", "params": { "amp": 1, "cycle": 16, "sparks": 4, "blink": [23, 26], "wave": { "from": 13, "amp": 2, "period": 4, "fade": true, "cycle": 8 } } },
+    "clapping-tracking":  { "builtin": "clapping", "params": { "offsets": [0, -1, -2, -3, -3, -2, -1, -2, -3, -3, -2, -1, 0], "sparkY": 6 } },
+    "cool":               { "builtin": "cool", "params": { "drop": 4 } },
+    "sleep":              { "builtin": "sleep", "params": { "settle": [1, 1, 2, 2, 3, 3, 4, 4], "squeeze": [0, 1, 2, 2, 3, 4, 4, 5], "wave": { "from": 14, "amp": 1, "period": 9, "fade": true, "cycle": 8 } } },
+    "waking":             { "builtin": "waking", "params": { "mode": "rise", "settle": [4, 4, 3, 3, 2, 2, 1, 0], "squeeze": [5, 4, 4, 3, 2, 2, 1, 0], "eyeSeq": ["closed", "closed", "closed", "dim", "dim", "open", "open", "open"] } },
+    "typing":             { "builtin": "typing", "params": { "cursorBlinks": 2, "cursorX": 9, "cursorY": 21, "cursorWidth": 5 } },
+    "love":               { "builtin": "love", "params": { "eyes": "closed", "heartX": [3, 20], "heartY": 16, "riseFrom": 0 } },
+    "speech":             { "builtin": "speech" },
+    "yapping":            { "builtin": "yapping", "params": { "widths": [2, 4, 6, 4, 2], "eyes": "narrow" } },
+    "search":             { "builtin": "search", "params": { "depth": 18, "gaze": 1 } }
+  },
+
+  "base": [
+    "....N...................",
+    ".....NNNHGFEEFGHNNN.....",
+    "..N.MMHGFEDCCDEFGHMM....",
+    ".....HGFEDCBBCDEFGH.....",
+    "...NHGFEDCBBBBCDEFGHN...",
+    ".NMMHGFEDCBBBBCDEFGHMM..",
+    "...HGFEDCBBAABBCDEFGH.N.",
+    "..NHGFEDCBBAABBCDEFGHN..",
+    "..MHGFEDCBBAABBCDEFGHM..",
+    ".N.HGFEDCBBAABBCDEFGH...",
+    "..NNHGFEDCBBBBCDEFGHNNN.",
+    "...MMHGFEDCBBCDEFGHMM...",
+    "......HGFEDCCDEFGH..N...",
+    ".....NNGEDCC.CDEGNN.....",
+    "......MGEDCCCC.EGMN.....",
+    "........GEDC.DEG........",
+    ".......NEEDC.DEEN.......",
+    ".......MMEEDDEEMMN......",
+    "......N..C.CCC..........",
+    ".......NNNCC.CNN........",
+    "........NM.C.CM.N.......",
+    "........................",
+    "..........N...N.........",
+    "........................"
+  ]
+}

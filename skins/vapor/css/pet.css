@@ -1,0 +1,31 @@
+/* ------------------------------------------------------------------
+   Vapor — surcharges CSS des pupilles DOM
+
+   FICHIER GENERE. Ne pas editer a la main : il est produit par
+   generator/petgen.py a partir de skins/vapor/skin.json, et la CI verifie
+   qu'il est a jour (une regeneration ne doit produire aucun diff).
+
+   Sur les etats idle / rendering / clapping, VS Code superpose des pupilles
+   en DOM qui suivent le curseur. Elles sont codees en dur en #191a1b et
+   placees pour l'ancien personnage : il faut les repositionner et les
+   recolorer.
+
+   Conversion : 1 cellule de la grille 24x24 = 4 px image = 2 px CSS.
+       orbite gauche  (6, 8) -> left: 12px, top: 16px
+       orbite droite  (14, 8) -> left: 28px, top: 16px
+   ------------------------------------------------------------------ */
+
+.chat-pet-eye        { top: 16px; width: 8px; height: 6px; }
+.chat-pet-eye.left   { left: 12px; }
+.chat-pet-eye.right  { left: 28px; }
+
+.chat-pet-pupil      { left: 2px; top: 1px; }
+
+/* Couleur du regard : role eyeCore de la palette. */
+.chat-pet-pupil      { background: #F4FEFF; }
+
+/* Les croix affichees pendant le drag sont codees en dur en
+   #191a1b dans le CSS natif : sans ces deux regles, le pet a
+   des yeux colores sauf quand on le deplace. */
+.chat-pet-button.dragging .chat-pet-eye::before,
+.chat-pet-button.dragging .chat-pet-eye::after { background: #F4FEFF; }

@@ -68,6 +68,7 @@
         "halo": { "type": "string" },
         "haloStrong": { "type": "string" },
         "spark": { "type": "string" },
+        "heart": { "type": "string" },
         "shadow": { "type": "string" },
         "outline": { "type": "string" },
         "bubbleFill": { "type": "string" },

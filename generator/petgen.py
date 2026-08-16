@@ -200,6 +200,9 @@ class Skin:
         self.c_page = self.role('pageFront', 'bubbleFill', 'spark')
         self.c_page2 = self.role('pageBack', 'shadow', 'outline')
         self.c_ink = self.role('ink', 'outline', 'shadow')
+        # les coeurs de `love` : sur une silhouette deja claire, eyeCore s'y
+        # noie — un skin peut donner une couleur d'accent dediee.
+        self.c_heart = self.role('heart', 'eyeCore')
 
         if not self.c_core:
             raise SkinError("le role `eyeCore` est obligatoire")
@@ -688,8 +691,12 @@ def bi_typing(sk, n, p, tracking):
 
 def bi_love(sk, n, p, tracking):
     """Yeux en cœur et petit cœur qui s'élève. Dernière frame stable."""
-    cx = int(p.get('heartX', (sk.body[0] + sk.body[2]) // 2))
-    top = int(sk.body[1])
+    # `heartX` accepte un entier ou une liste : les silhouettes claires ont
+    # besoin que les coeurs montent DANS LE VIDE, pas par-dessus le corps, ou
+    # ils s'y noient. `heartY` donne la ligne de depart.
+    xs = p.get('heartX', (sk.body[0] + sk.body[2]) // 2)
+    xs = [int(x) for x in (xs if isinstance(xs, list) else [xs])]
+    top = int(p.get('heartY', sk.body[1]))
     rise_from = int(p.get('riseFrom', max(1, n // 2)))
     mode = 'none' if tracking else p.get('eyes', 'hearts')
     out = []
@@ -699,9 +706,10 @@ def bi_love(sk, n, p, tracking):
         sk.eyes(g, 0, mode=mode)
         if i >= rise_from:
             hy = max(0, top - 1 - (i - rise_from) // 2)
-            sk.put(g, cx - 1, hy, sk.c_core)
-            sk.put(g, cx + 1, hy, sk.c_core)
-            sk.put(g, cx, hy + 1, sk.c_core)
+            for cx in xs:
+                sk.put(g, cx - 1, hy, sk.c_heart)
+                sk.put(g, cx + 1, hy, sk.c_heart)
+                sk.put(g, cx, hy + 1, sk.c_heart)
         out.append(g)
     return out
 

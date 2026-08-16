@@ -1,29 +1,29 @@
 /* ------------------------------------------------------------------
-   vscode-pet-skin — surcharges CSS
-   Repositionne les pupilles DOM sur les orbites des sprites et les
-   recolore.
+   Nixie — surcharges CSS des pupilles DOM
 
-   Les valeurs dérivent des coordonnées d'orbite du sprite, exprimées
-   dans une grille logique 24x24 :
+   FICHIER GENERE. Ne pas editer a la main : il est produit par
+   generator/petgen.py a partir de skins/nixie/skin.json, et la CI verifie
+   qu'il est a jour (une regeneration ne doit produire aucun diff).
 
-       1 cellule de grille = 4 px image = 2 px CSS
+   Sur les etats idle / rendering / clapping, VS Code superpose des pupilles
+   en DOM qui suivent le curseur. Elles sont codees en dur en #191a1b et
+   placees pour l'ancien personnage : il faut les repositionner et les
+   recolorer.
 
-       orbite gauche (6, 10)  ->  left: 12px, top: 20px
-       orbite droite (14, 10) ->  left: 28px, top: 20px
-
-   Si tu redessines les sprites avec d'autres coordonnées d'orbite,
-   recalcule : left = x * 2, top = y * 2.
+   Conversion : 1 cellule de la grille 24x24 = 4 px image = 2 px CSS.
+       orbite gauche  (6, 10) -> left: 12px, top: 20px
+       orbite droite  (14, 10) -> left: 28px, top: 20px
    ------------------------------------------------------------------ */
 
 .chat-pet-eye        { top: 20px; width: 8px; height: 8px; }
 .chat-pet-eye.left   { left: 12px; }
 .chat-pet-eye.right  { left: 28px; }
 
-/* Couleur du regard. #FF6A2B = oeil_coeur de la palette. */
+/* Couleur du regard : role eyeCore de la palette. */
 .chat-pet-pupil      { background: #FF6A2B; }
 
-/* Les croix affichées pendant le drag sont codées en dur en #191a1b
-   dans le CSS natif : sans ces deux règles, le pet a des yeux orange
-   sauf quand on le déplace. */
+/* Les croix affichees pendant le drag sont codees en dur en
+   #191a1b dans le CSS natif : sans ces deux regles, le pet a
+   des yeux colores sauf quand on le deplace. */
 .chat-pet-button.dragging .chat-pet-eye::before,
 .chat-pet-button.dragging .chat-pet-eye::after { background: #FF6A2B; }

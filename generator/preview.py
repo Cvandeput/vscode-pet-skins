@@ -89,7 +89,7 @@ def anim_walk(sk, cycles=1):
     for i in range(n):
         g = sk.blank()
         oy = int(round(math.sin(2 * math.pi * i / 8)))
-        wave = P._wave_at(
+        wave = P.wave_at(
             {'from': max(0, int(sk.body[3]) - 5), 'amp': 1, 'period': 5,
              'fade': True, 'cycle': 8}, i, n)
         sk.draw_base(g, oy, wave=wave)

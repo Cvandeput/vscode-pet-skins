@@ -118,7 +118,7 @@ def _resample(seq, n):
     return [seq[round(i * (len(seq) - 1) / (n - 1))] for i in range(n)]
 
 
-def _wave_at(params, i, n):
+def wave_at(params, i, n):
     """Instancie les paramètres d'ondulation pour la frame i."""
     if not params:
         return None
@@ -319,7 +319,7 @@ class Skin:
 
         oy         décalage vertical global
         feet       levée de chaque zone de `anchors.feet` (ignoré si vide)
-        wave       ondulation horizontale du bas du corps, cf. _wave_at
+        wave       ondulation horizontale du bas du corps, cf. wave_at
         squeeze    tassement vertical, bas ancré
         flicker    la dalle passe en couleur `screenFlicker`
         screen_off la dalle passe en couleur `screenOff`
@@ -485,7 +485,7 @@ def bi_idle(sk, n, p, tracking):
     for i in range(n):
         g = sk.blank()
         oy = bob if i >= bob_at else 0
-        sk.draw_base(g, oy, flicker=(i in flicker), wave=_wave_at(wave, i, n))
+        sk.draw_base(g, oy, flicker=(i in flicker), wave=wave_at(wave, i, n))
         sk.eyes(g, oy, mode=mode,
                 squash=bool(blink) and blink[0] <= i <= blink[1])
         out.append(g)
@@ -511,7 +511,7 @@ def bi_float(sk, n, p, tracking):
     for i in range(n):
         g = sk.blank()
         oy = offset + int(round(amp * math.sin(2 * math.pi * i / cycle)))
-        sk.draw_base(g, oy, wave=_wave_at(wave, i, n), squeeze=squeeze)
+        sk.draw_base(g, oy, wave=wave_at(wave, i, n), squeeze=squeeze)
         sk.eyes(g, oy, mode=mode, squeeze=squeeze,
                 squash=bool(blink) and blink[0] <= i <= blink[1])
         if sparks and sk.c_spark:
@@ -611,7 +611,7 @@ def bi_sleep(sk, n, p, tracking):
     for i in range(n):
         g = sk.blank()
         sk.draw_base(g, settle[i], squeeze=squeeze[i], screen_off=screen_off,
-                     wave=_wave_at(wave, i, n))
+                     wave=wave_at(wave, i, n))
         sk.eyes(g, settle[i], mode=p.get('eyes', 'closed'), squeeze=squeeze[i])
         out.append(g)
     return out
@@ -657,7 +657,7 @@ def bi_waking(sk, n, p, tracking):
     for i in range(n):
         g = sk.blank()
         sk.draw_base(g, settle[i], squeeze=squeeze[i],
-                     wave=_wave_at(wave, i, n))
+                     wave=wave_at(wave, i, n))
         sk.eyes(g, settle[i], mode='none' if tracking else eye_seq[i],
                 squeeze=squeeze[i])
         out.append(g)

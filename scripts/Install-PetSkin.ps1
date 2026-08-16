@@ -28,6 +28,15 @@
     Nombre de sauvegardes à conserver. Les plus anciennes sont supprimées
     après création de la nouvelle. Défaut : 5. 0 = illimité.
 
+    Exception : les sauvegardes marquées « d'origine » — celles prises alors
+    qu'aucun skin n'était encore posé, donc les seules à contenir le pet de
+    Microsoft — ne sont jamais purgées, quel que soit le quota.
+
+.PARAMETER LogFile
+    Journal de la session élevée. Renseigné automatiquement lors de la
+    relance en administrateur : la fenêtre élevée se referme aussitôt, sans
+    ce transcript son résultat serait invisible.
+
 .PARAMETER KeepBanner
     N'écrit pas product.json. La bannière d'intégrité apparaîtra à chaque
     démarrage. À utiliser si tu préfères ne pas toucher au fichier.
@@ -69,6 +78,7 @@ param(
     [string] $CssFile,
     [string] $VSCodeRoot,
     [int]    $KeepBackups = 5,
+    [string] $LogFile,
     [switch] $List,
     [switch] $KeepBanner,
     [switch] $Force,
@@ -140,6 +150,7 @@ if (-not $isAdmin) {
     Say '== Elevation requise, relance en administrateur' 'Yellow'
     $argList = @('-ExecutionPolicy','Bypass','-File',"`"$PSCommandPath`"")
     foreach ($k in $PSBoundParameters.Keys) {
+        if ($k -eq 'LogFile') { continue }
         $v = $PSBoundParameters[$k]
         if ($v -is [switch]) { if ($v) { $argList += "-$k" } }
         else { $argList += @("-$k", "`"$v`"") }
@@ -147,8 +158,32 @@ if (-not $isAdmin) {
     # Le skin resolu est transmis explicitement pour que la session elevee
     # cible exactement le meme skin.
     if (-not $PSBoundParameters.ContainsKey('Skin')) { $argList += @('-Skin', "`"$Skin`"") }
-    Start-Process powershell -Verb RunAs -ArgumentList $argList
-    exit
+
+    # La fenetre elevee se referme des qu'elle a fini : sans journal, ni son
+    # resultat ni ses messages ne sont visibles, et l'appelant (notamment
+    # install.ps1 lance par `irm | iex`) annoncerait un succes sans rien savoir.
+    # -Verb RunAs interdit -RedirectStandardOutput, d'ou le transcript.
+    if (-not $LogFile) { $LogFile = Join-Path $StateDir 'last-run.log' }
+    New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
+    $argList += @('-LogFile', "`"$LogFile`"")
+
+    $proc = Start-Process powershell -Verb RunAs -ArgumentList $argList -Wait -PassThru
+    $code = if ($null -ne $proc) { $proc.ExitCode } else { 1 }
+    if ($code -ne 0) {
+        Write-Host "  ECHEC : la session elevee est sortie en $code" -ForegroundColor Red
+        if (Test-Path $LogFile) {
+            Write-Host "  Dernieres lignes de $LogFile :" -ForegroundColor Red
+            Get-Content $LogFile -Tail 20 | ForEach-Object { Write-Host "    $_" }
+        }
+    } else {
+        Say "   session elevee terminee, journal : $LogFile" 'Green'
+    }
+    exit $code
+}
+
+# Session elevee : on journalise, la fenetre disparaitra sans laisser de trace.
+if ($LogFile) {
+    try { Start-Transcript -Path $LogFile -Force | Out-Null } catch { $null = $_ }
 }
 
 Say '== Verifications prealables' 'Cyan'
@@ -285,21 +320,44 @@ New-Item -ItemType Directory -Force -Path (Join-Path $bk 'chatPet') | Out-Null
 Copy-Item (Join-Path $PetDir 'buddy-*.png') (Join-Path $bk 'chatPet') -Force
 Copy-Item $Workbench (Join-Path $bk 'workbench.html') -Force
 Copy-Item $Product   (Join-Path $bk 'product.json')   -Force
-@{ Root = $VSCodeRoot; Base = $base; Commit = $build.Commit; Version = $vscodeVersion } |
+# Une sauvegarde est « d'origine » si le marqueur CSS etait absent avant
+# ecriture : ce qu'elle contient est alors le pet de Microsoft, pas un skin
+# precedent. C'est la seule qui permette un retour a l'etat initial.
+$pristine = -not ($htmlProbe -match [regex]::Escape("<!-- $Marker`:start -->"))
+@{ Root = $VSCodeRoot; Base = $base; Commit = $build.Commit; Version = $vscodeVersion
+   Pristine = $pristine; Skin = $Skin } |
     ConvertTo-Json | Set-Content (Join-Path $bk 'paths.json') -Encoding UTF8
+if ($pristine) { Say '   sauvegarde d''origine (pet de Microsoft), protegee de la purge' 'Green' }
 Set-Content (Join-Path $StateDir 'LAST_BACKUP.txt') $bk -Encoding UTF8
 Say '== Sauvegarde' 'Cyan'
 Say "   $bk"
 
 # ---- rétention : on ne garde que les N plus recentes (nom = timestamp triable)
+# Les sauvegardes d'origine ne sont JAMAIS purgees : ce sont les seules qui
+# contiennent le pet de Microsoft. Les supprimer rendrait la desinstallation
+# incapable de revenir a l'etat initial, alors que c'est ce qu'elle promet.
 if ($KeepBackups -gt 0) {
     $olds = @(Get-ChildItem $BackupDir -Directory -ErrorAction SilentlyContinue |
         Sort-Object Name -Descending | Select-Object -Skip $KeepBackups)
+    $purged, $kept = 0, 0
     foreach ($o in $olds) {
+        $meta = $null
+        $mf = Join-Path $o.FullName 'paths.json'
+        if (Test-Path $mf) {
+            try { $meta = Get-Content $mf -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json }
+            catch { $meta = $null }
+        }
+        if ($meta -and $meta.Pristine) {
+            $kept++
+            Say "   conservee (sauvegarde d'origine) : $($o.Name)"
+            continue
+        }
         Remove-Item $o.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        $purged++
         Say "   purge : $($o.Name)"
     }
-    if ($olds.Count) { Say "   $($olds.Count) ancienne(s) sauvegarde(s) supprimee(s), $KeepBackups conservee(s)" }
+    if ($purged) { Say "   $purged ancienne(s) sauvegarde(s) supprimee(s), $KeepBackups conservee(s)" }
+    if ($kept)   { Say "   $kept sauvegarde(s) d'origine conservee(s) hors quota" }
 }
 
 # --------------------------------------------------------------- 1. sprites

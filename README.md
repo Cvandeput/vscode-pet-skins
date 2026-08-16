@@ -4,7 +4,7 @@ Remplace le pet expérimental de VS Code par une mascotte personnalisée, et
 documente le format pour que tu puisses dessiner la tienne.
 
 Trois skins sont fournis — **Nixie**, **Vapor** et **Codex** — mais l'essentiel
-du dépôt est ailleurs : un générateur qui dérive les 220 frames imposées par
+du dépôt est ailleurs : un générateur qui dérive les 217 frames imposées par
 VS Code à partir d'un seul fichier de description, et la
 **[spécification complète du format](SPRITE-SPEC.md)**, reconstituée par
 lecture du bundle — elle n'existe nulle part ailleurs.
@@ -136,7 +136,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Install-PetSkin.ps1 -Skin cod
 
 Le script s'élève tout seul (invite UAC), refuse de tourner si VS Code est
 ouvert — `-Force` pour le fermer automatiquement — et sauvegarde tout avant
-d'écrire.
+d'écrire. Il **attend** la fin de la session élevée et propage son code de
+sortie ; comme la fenêtre élevée se referme aussitôt, elle est journalisée
+dans `%USERPROFILE%\.vscode-pet-skin\last-run.log`, dont les dernières lignes
+sont affichées en cas d'échec.
 
 ### Options
 
@@ -144,7 +147,7 @@ d'écrire.
 |---|---|
 | `-List` | liste les skins disponibles avec auteur et versions vérifiées, puis sort. N'exige aucune élévation |
 | `-Skin <nom>` | choisit un sous-dossier de `skins\`. Non fourni, le dernier skin installé est relu dans `state.json` (défaut `nixie`) |
-| `-KeepBackups <n>` | nombre de sauvegardes conservées, les plus anciennes sont purgées. Défaut `5`, `0` = illimité |
+| `-KeepBackups <n>` | nombre de sauvegardes conservées, les plus anciennes sont purgées. Défaut `5`, `0` = illimité. Les sauvegardes d'origine échappent au quota |
 | `-Force` | ferme VS Code au lieu de s'arrêter |
 | `-KeepBanner` | ne touche pas à `product.json` ; la bannière d'intégrité apparaîtra |
 | `-RegisterLogonTask` | rejoue l'installation à chaque ouverture de session |
@@ -163,9 +166,14 @@ ouverture de session, elle ne crée plus une sauvegarde complète à chaque fois
 powershell -ExecutionPolicy Bypass -File .\scripts\Uninstall-PetSkin.ps1
 ```
 
-Restaure les 48 sprites, `workbench.html` et `product.json` depuis la
-sauvegarde la plus récente, vérifie chaque fichier par SHA-256, et supprime la
-tâche planifiée si elle existe.
+Restaure les 48 sprites, `workbench.html` et `product.json`, vérifie chaque
+fichier par SHA-256, et supprime la tâche planifiée si elle existe.
+
+Par défaut, c'est la sauvegarde **d'origine** qui est restaurée — celle prise
+avant qu'un skin ne soit posé, la seule à contenir le pet de Microsoft. La
+sauvegarde la plus récente, elle, peut ne contenir qu'un skin précédent si tu
+en as changé. Pour la même raison, `-KeepBackups` ne purge jamais les
+sauvegardes d'origine, quel que soit le quota.
 
 ```powershell
 .\scripts\Uninstall-PetSkin.ps1 -ListBackups

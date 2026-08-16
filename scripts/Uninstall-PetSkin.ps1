@@ -14,7 +14,12 @@
     Affiche les sauvegardes disponibles et sort.
 
 .PARAMETER Timestamp
-    Restaure une sauvegarde précise. Par défaut, la plus récente.
+    Restaure une sauvegarde précise.
+
+    Par défaut, le script restaure la plus récente sauvegarde « d'origine »,
+    c'est-à-dire prise avant qu'un skin ne soit posé : c'est la seule qui
+    ramène le pet de Microsoft. La plus récente tout court peut ne contenir
+    qu'un skin précédent, si tu en as changé. -ListBackups les affiche toutes.
 
 .PARAMETER VSCodeRoot
     Force la racine d'installation de VS Code au lieu de la détecter.
@@ -58,11 +63,25 @@ if ($ListBackups) {
 }
 if (-not $all) { Fail 'Aucune sauvegarde.' }
 
+function Get-BackupMeta([string]$dir) {
+    $f = Join-Path $dir 'paths.json'
+    if (-not (Test-Path $f)) { return $null }
+    try { return (Get-Content $f -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json) }
+    catch { return $null }
+}
+
+# Desinstaller veut dire « revenir au pet d'origine ». La sauvegarde la plus
+# recente peut tres bien contenir un skin precedent (cas d'un changement de
+# skin) : on prefere donc la plus recente marquee Pristine, qui contient les
+# fichiers de Microsoft. -Timestamp permet toujours de viser autre chose.
 $bk = if ($Timestamp) {
     $m = $all | Where-Object Name -eq $Timestamp
     if (-not $m) { Fail "Sauvegarde $Timestamp introuvable." }
     $m.FullName
-} else { $all[0].FullName }
+} else {
+    $orig = $all | Where-Object { (Get-BackupMeta $_.FullName).Pristine } | Select-Object -First 1
+    if ($orig) { $orig.FullName } else { $all[0].FullName }
+}
 
 # --------------------------------------------------------------- élévation
 $isAdmin = ([Security.Principal.WindowsPrincipal] `
@@ -70,11 +89,17 @@ $isAdmin = ([Security.Principal.WindowsPrincipal] `
     ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     $a = @('-ExecutionPolicy','Bypass','-File',"`"$PSCommandPath`"")
-    if ($Timestamp)  { $a += @('-Timestamp', $Timestamp) }
+    # La sauvegarde choisie est transmise telle quelle : sans cela la session
+    # elevee refait le choix, et pourrait ne pas retomber sur la meme.
+    $a += @('-Timestamp', (Split-Path -Leaf $bk))
     if ($VSCodeRoot) { $a += @('-VSCodeRoot', "`"$VSCodeRoot`"") }
     if ($Force)      { $a += '-Force' }
-    Start-Process powershell -Verb RunAs -ArgumentList $a
-    exit
+    # -Wait : sans lui, la fenetre elevee est detachee et ce script sortirait
+    # en 0 sans savoir si la restauration a reussi.
+    $proc = Start-Process powershell -Verb RunAs -ArgumentList $a -Wait -PassThru
+    $code = if ($null -ne $proc) { $proc.ExitCode } else { 1 }
+    if ($code -ne 0) { Write-Host "  ECHEC : la session elevee est sortie en $code" -ForegroundColor Red }
+    exit $code
 }
 
 # --------------------------------------------------------------- localisation
@@ -95,6 +120,12 @@ $build = Resolve-VSCodeBuild -VSCodeRoot $root
 $base  = if ($build) { $build.Base } else { $null }
 
 Say "== Restauration depuis $bk" 'Cyan'
+if ($saved -and $saved.Pristine) {
+    Say '   sauvegarde d''origine : retour au pet de Microsoft' 'Green'
+} elseif (-not $Timestamp) {
+    Say '   AVERTISSEMENT : aucune sauvegarde d''origine trouvee, restauration de' 'Yellow'
+    Say '                   l''etat precedent. -ListBackups pour en choisir une autre.' 'Yellow'
+}
 if ($build) {
     foreach ($w in $build.Warnings) { Say "   AVERTISSEMENT : $w" 'Yellow' }
 }
